@@ -1,0 +1,122 @@
+// Bottom Tab Navigator
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { COLORS } from '../styles/theme';
+import SVGIcon from '../components/SVGIcon';
+
+// Import screens
+import FeedScreen from '../screens/FeedScreen';
+import DiscoverScreen from '../screens/DiscoverScreen';
+import CameraScreen from '../screens/CameraScreen';
+import InboxScreen from '../screens/InboxScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+
+const Tab = createBottomTabNavigator();
+
+export const BottomTabNavigator = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: COLORS.accent,
+        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarHideOnKeyboard: true,
+      }}
+    >
+      <Tab.Screen 
+        name="Accueil" 
+        component={FeedScreen} 
+        options={{
+          tabBarIcon: ({ color }) => (
+            <SVGIcon name="home" size={22} color={color} />
+          ),
+          tabBarLabel: 'Accueil',
+        }}
+      />
+      
+      <Tab.Screen 
+        name="Découvrir" 
+        component={DiscoverScreen} 
+        options={{
+          tabBarIcon: ({ color }) => (
+            <SVGIcon name="discover" size={22} color={color} />
+          ),
+          tabBarLabel: 'Découvrir',
+        }}
+      />
+      
+      <Tab.Screen 
+        name="Plus" 
+        component={CameraScreen} 
+        options={{
+          tabBarIcon: () => (
+            <View style={styles.plusContainer}>
+              <SVGIcon name="plus" />
+            </View>
+          ),
+          tabBarLabel: () => null, // Hide label under the plus icon
+        }}
+      />
+      
+      <Tab.Screen 
+        name="Boîte" 
+        component={InboxScreen} 
+        options={{
+          tabBarIcon: ({ color }) => (
+            <SVGIcon name="inbox" size={22} color={color} />
+          ),
+          tabBarLabel: 'Boîte',
+          tabBarBadge: 5,
+          tabBarBadgeStyle: styles.badge,
+        }}
+      />
+      
+      <Tab.Screen 
+        name="Profil" 
+        component={ProfileScreen} 
+        options={{
+          tabBarIcon: ({ color }) => (
+            <SVGIcon name="profile" size={22} color={color} />
+          ),
+          tabBarLabel: 'Profil',
+        }}
+      />
+    </Tab.Navigator>
+  );
+};
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: COLORS.background,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    height: 60,
+    paddingBottom: 6,
+    paddingTop: 6,
+  },
+  tabBarLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  plusContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%',
+  },
+  badge: {
+    backgroundColor: COLORS.secondary,
+    color: COLORS.text,
+    fontSize: 9,
+    fontWeight: 'bold',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    lineHeight: 14,
+  },
+});
+
+export default BottomTabNavigator;
