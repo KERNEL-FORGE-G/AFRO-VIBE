@@ -149,7 +149,7 @@ router.post('/', upload.single('video'), async (req, res) => {
       return res.status(400).json({ error: 'Aucun fichier vidéo ou URL fourni. (req.file and bodyVideoUrl are empty)' });
     }
     
-    const videoUrl = req.file ? `/uploads/${req.file.filename}` : bodyVideoUrl; 
+    const videoUrl = req.file ? `http://${req.headers.host}/uploads/${req.file.filename}` : bodyVideoUrl; 
     const videoId = 'vid_' + Date.now();
     
     console.log('Creating video post:', { videoId, videoUrl, caption });
