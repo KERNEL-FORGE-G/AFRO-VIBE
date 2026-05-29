@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import firebaseService from './firebaseService';
 
 let API_URL = 'http://10.0.2.2:3000/api'; // Default for Android Emulator
@@ -6,6 +7,31 @@ let STORAGE_MODE = 'offline'; // Par défaut en local pour éviter les erreurs F
 let currentUser = null;
 const authListeners = new Set();
 let currentToken = null;
+
+const normalizeApiUrl = (url) => {
+  if (!url || typeof url !== 'string') {
+    throw new Error('URL du serveur invalide.');
+  }
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+    throw new Error('L\'URL doit commencer par http:// ou https://');
+  }
+
+  const cleanedUrl = trimmedUrl.replace(/\/+$/, '');
+  return cleanedUrl.endsWith('/api') ? cleanedUrl : `${cleanedUrl}/api`;
+};
+
+const getResponseJson = async (response) => {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error('Réponse serveur invalide. Vérifiez que l\'URL pointe vers le backend Afro Vibe (/api).');
+  }
+};
 
 export const configService = {
   getApiUrl: () => API_URL,
@@ -15,13 +41,7 @@ export const configService = {
     await AsyncStorage.setItem('STORAGE_MODE', mode);
   },
   setApiUrl: async (url) => {
-    // Basic validation
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      throw new Error('L\'URL doit commencer par http:// ou https://');
-    }
-    
-    // Remove trailing slash if present
-    const cleanedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+    const cleanedUrl = normalizeApiUrl(url);
     API_URL = cleanedUrl;
     await AsyncStorage.setItem('API_URL', cleanedUrl);
   },
@@ -29,14 +49,19 @@ export const configService = {
     try {
       const savedUrl = await AsyncStorage.getItem('API_URL');
       if (savedUrl) {
-        API_URL = savedUrl;
+        try {
+          API_URL = normalizeApiUrl(savedUrl);
+        } catch (urlError) {
+          console.log('Invalid saved API URL, using default:', urlError);
+          await AsyncStorage.removeItem('API_URL');
+        }
       }
 
       const savedMode = await AsyncStorage.getItem('STORAGE_MODE');
       if (savedMode) {
         STORAGE_MODE = savedMode;
       }
-      
+
       // Restore user session
       const savedToken = await AsyncStorage.getItem('USER_TOKEN');
       const savedUserRaw = await AsyncStorage.getItem('CURRENT_USER');
@@ -51,10 +76,10 @@ export const configService = {
   },
   testConnection: async (url) => {
     try {
-      const testUrl = url || API_URL;
+      const testUrl = normalizeApiUrl(url || API_URL);
       const baseUrl = testUrl.replace(/\/api$/, '');
-      const response = await fetch(`${baseUrl}/api/health`);
-      const data = await response.json();
+      const response = await fetchWithTimeout(`${baseUrl}/api/health`, {}, 8000);
+      const data = await getResponseJson(response);
       return data.status === 'ok';
     } catch (err) {
       console.error(err);
@@ -84,7 +109,7 @@ export const authService = {
       body: JSON.stringify({ email, password })
     });
     
-    const data = await res.json();
+    const data = await getResponseJson(res);
     if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
     
     currentToken = data.token;
@@ -106,7 +131,7 @@ export const authService = {
         body: JSON.stringify({ email, password, username })
       });
       
-      const data = await res.json();
+      const data = await getResponseJson(res);
       if (!res.ok) throw new Error(data.error || "Erreur lors de l'inscription");
       
       currentToken = data.token;
@@ -209,7 +234,7 @@ export const authService = {
               username: account.username 
             })
           });
-          const data = await res.json();
+          const data = await getResponseJson(res);
           if (res.ok) {
             account.isSynced = true;
             account.uid = data.user.uid;
@@ -248,7 +273,7 @@ export const dbService = {
       const res = await fetch(url);
 
       if (res.ok) {
-        return await res.json();
+        return await getResponseJson(res);
       }
       return [];
     } catch (e) {
@@ -266,13 +291,13 @@ export const dbService = {
       }
     });
     if (!res.ok) throw new Error('Erreur');
-    return await res.json();
+    return await getResponseJson(res);
   },
 
   getComments: async (videoId) => {
     const res = await fetchWithTimeout(`${API_URL}/videos/${videoId}/comments`);
     if (!res.ok) throw new Error('Erreur');
-    return await res.json();
+    return await getResponseJson(res);
   },
 
   addComment: async (videoId, commentText) => {
@@ -285,7 +310,7 @@ export const dbService = {
       body: JSON.stringify({ text: commentText })
     });
     if (!res.ok) throw new Error('Erreur');
-    return await res.json();
+    return await getResponseJson(res);
   },
   
   createVideoPost: async (videoData) => {
@@ -298,7 +323,7 @@ export const dbService = {
       body: JSON.stringify(videoData)
     });
     if (!res.ok) throw new Error('Erreur de publication');
-    return await res.json();
+    return await getResponseJson(res);
   },
 
   uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !', category = 'Danse') => {
@@ -329,7 +354,7 @@ export const dbService = {
       });
 
       if (!res.ok) throw new Error('Erreur d\'upload local');
-      return await res.json();
+      return await getResponseJson(res);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -364,7 +389,7 @@ export const dbService = {
     });
 
     if (!res.ok) throw new Error('Erreur d\'upload avatar local');
-    const result = await res.json();
+    const result = await getResponseJson(res);
     
     // Persistance locale
     if (currentUser) {
@@ -422,7 +447,7 @@ export const dbService = {
     try {
       const res = await fetch(`${API_URL}/users/${userId}`);
       if (res.ok) {
-        return await res.json();
+        return await getResponseJson(res);
       }
     } catch (e) {
       console.log('Error in local getUser:', e);

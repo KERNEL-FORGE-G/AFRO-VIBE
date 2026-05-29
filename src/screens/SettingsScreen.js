@@ -32,6 +32,7 @@ export const SettingsScreen = ({ navigation }) => {
     if (success) {
       try {
         await configService.setApiUrl(serverIp);
+        setServerIp(configService.getApiUrl());
         Alert.alert('Succès', 'Connexion au serveur réussie ! Configuration sauvegardée.');
       } catch (e) {
         Alert.alert('Erreur', e.message || 'URL invalide.');
