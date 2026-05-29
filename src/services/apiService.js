@@ -408,7 +408,6 @@ export const dbService = {
   },
 
   getUser: async (userId) => {
-    console.log('DEBUG: Appel getUser pour ID:', userId);
     // Si mode online, on essaie Firebase en priorité, sinon on passe direct au backend
     if (STORAGE_MODE === 'online') {
       try {
@@ -421,14 +420,10 @@ export const dbService = {
 
     // Mode LOCAL (Node.js)
     try {
-      console.log('DEBUG: Appel fetch vers:', `${API_URL}/users/${userId}`);
       const res = await fetch(`${API_URL}/users/${userId}`);
       if (res.ok) {
-        const data = await res.json();
-        console.log('DEBUG: Réponse getUser:', data);
-        return data;
+        return await res.json();
       }
-      console.log('DEBUG: Erreur fetch status:', res.status);
     } catch (e) {
       console.log('Error in local getUser:', e);
     }

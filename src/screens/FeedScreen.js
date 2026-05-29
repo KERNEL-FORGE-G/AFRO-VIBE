@@ -33,17 +33,16 @@ export const FeedScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const isFocused = useIsFocused();
 
-  // Reload videos when screen comes into focus (e.g. after upload)
+  // Reload videos when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadVideos();
-    }, [])
+    }, [loadVideos]) // Dépendance correcte
   );
 
-  const loadVideos = async () => {
+  const loadVideos = useCallback(async () => {
     try {
       const list = await dbService.getVideos();
-      console.log('DEBUG FRONTEND: Liste complète reçue:', JSON.stringify(list, null, 2));
       setVideos(list);
       if (list.length > 0 && !activeVideoId) {
         setActiveVideoId(list[0].id);
@@ -51,7 +50,7 @@ export const FeedScreen = () => {
     } catch (err) {
       console.error('Error loading videos:', err);
     }
-  };
+  }, [activeVideoId]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -256,10 +255,11 @@ export const FeedScreen = () => {
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         style={styles.feedList}
-        windowSize={3}
+        windowSize={2}
         initialNumToRender={1}
-        maxToRenderPerBatch={2}
+        maxToRenderPerBatch={1}
         removeClippedSubviews={true}
+        updateCellsBatchingPeriod={100}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
