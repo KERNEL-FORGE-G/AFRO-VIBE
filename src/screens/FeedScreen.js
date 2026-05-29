@@ -43,6 +43,7 @@ export const FeedScreen = () => {
   const loadVideos = async () => {
     try {
       const list = await dbService.getVideos();
+      console.log('DEBUG: Videos reçues du backend:', list.length);
       setVideos(list);
       if (list.length > 0 && !activeVideoId) {
         setActiveVideoId(list[0].id);
