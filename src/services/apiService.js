@@ -392,15 +392,22 @@ export const dbService = {
   },
 
   getUser: async (userId) => {
-    try {
-      // Priority to Firebase for profile details
-      const fbUser = await firebaseService.getUser(userId);
-      if (fbUser) return fbUser;
+    // Si mode online, on essaie Firebase en priorité, sinon on passe direct au backend
+    if (STORAGE_MODE === 'online') {
+      try {
+        const fbUser = await firebaseService.getUser(userId);
+        if (fbUser) return fbUser;
+      } catch (e) {
+        console.log('Firebase getUser failed, falling back to local backend:', e);
+      }
+    }
 
+    // Mode LOCAL (Node.js)
+    try {
       const res = await fetch(`${API_URL}/users/${userId}`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.log('Error in getUser:', e);
+      console.log('Error in local getUser:', e);
     }
     throw new Error('Utilisateur introuvable');
   },
