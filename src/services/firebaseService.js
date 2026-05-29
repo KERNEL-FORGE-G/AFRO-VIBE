@@ -1,66 +1,120 @@
-import storage from '@react-native-firebase/storage';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getAuth, signInAnonymously } from '@react-native-firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  serverTimestamp, 
+  query, 
+  orderBy, 
+  getDocs, 
+  doc, 
+  setDoc,
+  getDoc,
+  where
+} from '@react-native-firebase/firestore';
+import { 
+  getStorage, 
+  ref, 
+  putFile, 
+  getDownloadURL 
+} from '@react-native-firebase/storage';
 import { ENV } from '../config/env';
+import { Platform } from 'react-native';
 
-// This service handles online storage using Firebase
+// Helper pour s'assurer qu'on est connecté à Firebase (nécessaire pour Storage)
+const ensureAuth = async () => {
+  try {
+    const auth = getAuth();
+    if (!auth.currentUser) {
+      console.log('Firebase: Tentative de connexion anonyme...');
+      await signInAnonymously(auth);
+      console.log('Firebase: Connecté anonymement.');
+    }
+    return auth.currentUser;
+  } catch (err) {
+    console.warn('Firebase Auth: Impossible de se connecter anonymement (vérifiez si l\'Auth Anonyme est activée dans la console Firebase).', err.message);
+    return null; // On continue quand même l'upload (pourra échouer plus tard si règles strictes)
+  }
+};
+
+// Helper pour formater la date
+const getDateFolder = () => {
+  const now = new Date();
+  return `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+};
+
 export const firebaseService = {
   uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !') => {
     if (ENV.useMockFirebase) {
-      console.log('Mocking Firebase Video Upload:', videoUri);
-      return { success: true, videoUrl: 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4', isMock: true };
+      return { success: true, videoUrl: 'https://sample-videos.com/video.mp4', isMock: true };
     }
 
     try {
-      const user = auth().currentUser;
+      // 1. Auth (si possible)
+      const user = await ensureAuth();
       const userId = user ? user.uid : 'anonymous';
-      const filename = `videos/${userId}/${Date.now()}_${videoUri.split('/').pop()}`;
-      const reference = storage().ref(filename);
+      const userEmail = user?.email || 'unknown';
+      
+      // 2. Préparer le chemin Android (absolu sans file:// pour putFile)
+      const localPath = Platform.OS === 'android' ? videoUri.replace('file://', '') : videoUri;
+      
+      const timestamp = Date.now();
+      const dateFolder = getDateFolder();
+      const filename = `users/${userId}/videos/${dateFolder}/${timestamp}_video.mp4`;
+      
+      const storage = getStorage();
+      const videoRef = ref(storage, filename);
 
-      console.log('Uploading to Firebase Storage:', filename);
-      await reference.putFile(videoUri);
-      const downloadURL = await reference.getDownloadURL();
+      console.log('Upload vers Storage:', filename);
+      console.log('Chemin local:', localPath);
+      
+      // 3. Upload direct (plus stable sur certains Android)
+      await putFile(videoRef, localPath);
+      
+      console.log('Upload réussi, récupération de l\'URL...');
+      const downloadURL = await getDownloadURL(videoRef);
 
-      // Also create a firestore record for the video
-      const videoDoc = await firestore().collection('videos').add({
+      // 4. Enregistrement Firestore
+      const db = getFirestore();
+      const videoDoc = await addDoc(collection(db, 'videos'), {
         user_id: userId,
+        user_email: userEmail,
         videoUrl: downloadURL,
         caption: caption,
-        likes: 0,
-        commentsCount: 0,
-        shares: 0,
-        audioName: 'Son Original',
-        category: 'Danse',
-        views: 0,
-        thumbnail: 'logo.jpg',
-        created_at: firestore.FieldValue.serverTimestamp(),
+        created_at: serverTimestamp(),
       });
 
       return { success: true, videoId: videoDoc.id, videoUrl: downloadURL };
     } catch (error) {
-      console.error('Firebase Storage Error:', error);
+      console.error('Firebase Storage Error in uploadVideo:', error);
       throw error;
     }
   },
 
   uploadAvatar: async (imageUri) => {
     if (ENV.useMockFirebase) {
-      console.log('Mocking Firebase Avatar Upload:', imageUri);
       return { success: true, avatarUrl: 'https://i.pravatar.cc/300', isMock: true };
     }
 
     try {
-      const user = auth().currentUser;
+      const user = await ensureAuth();
       const userId = user ? user.uid : 'anonymous';
-      const filename = `avatars/${userId}/${Date.now()}_avatar.jpg`;
-      const reference = storage().ref(filename);
+      const timestamp = Date.now();
+      
+      const localPath = Platform.OS === 'android' ? imageUri.replace('file://', '') : imageUri;
+      const filename = `users/${userId}/avatars/${timestamp}_avatar.jpg`;
+      
+      const storage = getStorage();
+      const avatarRef = ref(storage, filename);
 
-      await reference.putFile(imageUri);
-      const downloadURL = await reference.getDownloadURL();
+      await putFile(avatarRef, localPath);
+      const downloadURL = await getDownloadURL(avatarRef);
 
-      // Update user profile in Firestore if applicable
-      await firestore().collection('users').doc(userId).set({
-        avatar: downloadURL
+      // Update user profile in Firestore
+      const db = getFirestore();
+      await setDoc(doc(db, 'users', userId), {
+        avatar: downloadURL,
+        updated_at: serverTimestamp()
       }, { merge: true });
 
       return { success: true, avatarUrl: downloadURL };
@@ -70,26 +124,65 @@ export const firebaseService = {
     }
   },
 
-  getVideos: async () => {
-    if (ENV.useMockFirebase) {
-      return [];
+  getUser: async (userId) => {
+    try {
+      const db = getFirestore();
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (userDoc.exists()) {
+        return { uid: userDoc.id, ...userDoc.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error('Firestore Error in getUser:', error);
+      throw error;
     }
+  },
+
+  updateProfile: async (userId, data) => {
+    try {
+      const db = getFirestore();
+      await setDoc(doc(db, 'users', userId), {
+        ...data,
+        updated_at: serverTimestamp()
+      }, { merge: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Firestore Error in updateProfile:', error);
+      throw error;
+    }
+  },
+
+  getVideos: async (userId = null) => {
+    if (ENV.useMockFirebase) return [];
 
     try {
-      const snapshot = await firestore().collection('videos').orderBy('created_at', 'desc').get();
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        // Map data to frontend format
+      const db = getFirestore();
+      const videosCollection = collection(db, 'videos');
+      
+      let videosQuery;
+      if (userId) {
+        videosQuery = query(
+          videosCollection, 
+          where('user_id', '==', userId),
+          orderBy('created_at', 'desc')
+        );
+      } else {
+        videosQuery = query(videosCollection, orderBy('created_at', 'desc'));
+      }
+      
+      const snapshot = await getDocs(videosQuery);
+      return snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
         user: {
-          username: 'Firebase User', // You'd fetch user details here
-          fullName: 'Firebase User',
-          avatar: null,
-          isVerified: false
+          uid: d.data().user_id,
+          username: d.data().user_email?.split('@')[0] || 'Firebase User',
+          avatar: null
         }
       }));
     } catch (error) {
-      console.error('Firestore Error:', error);
+      console.error('Firestore Error in getVideos:', error);
       throw error;
     }
   }

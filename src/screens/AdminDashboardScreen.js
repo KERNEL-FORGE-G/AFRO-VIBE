@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import firestore from '@react-native-firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  onSnapshot, 
+  doc, 
+  deleteDoc 
+} from '@react-native-firebase/firestore';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 
@@ -9,24 +15,41 @@ export const AdminDashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = firestore()
-      .collection('videos')
-      .onSnapshot(snapshot => {
-        const videoList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
+    const db = getFirestore();
+    const videosCollection = collection(db, 'videos');
+    
+    const unsubscribe = onSnapshot(videosCollection, snapshot => {
+      if (snapshot) {
+        const videoList = snapshot.docs.map(d => ({
+          id: d.id,
+          ...d.data(),
         }));
         setVideos(videoList);
-        setLoading(false);
-      });
+      }
+      setLoading(false);
+    }, error => {
+      console.error('Admin Dashboard Firestore Error:', error);
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, []);
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     Alert.alert('Supprimer', 'Voulez-vous supprimer cette vidéo ?', [
       { text: 'Annuler' },
-      { text: 'Supprimer', onPress: () => firestore().collection('videos').doc(id).delete() }
+      { 
+        text: 'Supprimer', 
+        onPress: async () => {
+          try {
+            const db = getFirestore();
+            await deleteDoc(doc(db, 'videos', id));
+          } catch (error) {
+            console.error('Delete error:', error);
+            Alert.alert('Erreur', 'Impossible de supprimer la vidéo.');
+          }
+        } 
+      }
     ]);
   };
 

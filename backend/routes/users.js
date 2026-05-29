@@ -8,7 +8,7 @@ const router = express.Router();
 // Configure multer for avatar uploads
 const avatarStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, '../../uploads/avatars');
+    const uploadDir = path.join(__dirname, '../uploads/avatars');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }

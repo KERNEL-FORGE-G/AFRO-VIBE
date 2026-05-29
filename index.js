@@ -8,7 +8,11 @@ import { name as appName } from './app.json';
 import notifee, { EventType } from '@notifee/react-native';
 
 // Ignore specific deprecation warnings that clutter the console
-LogBox.ignoreLogs(['InteractionManager has been deprecated']);
+LogBox.ignoreLogs([
+  'InteractionManager has been deprecated',
+  'React Native Firebase namespaced API',
+  'getApp() instead'
+]);
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
   const { notification, pressAction } = detail;

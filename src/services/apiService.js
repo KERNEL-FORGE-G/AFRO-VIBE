@@ -1,10 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import { ENV } from '../config/env';
 import firebaseService from './firebaseService';
 
 let API_URL = 'http://10.0.2.2:3000/api'; // Default for Android Emulator
-let STORAGE_MODE = 'online'; // Force 'online' mode
+let STORAGE_MODE = 'offline'; // Par défaut en local pour éviter les erreurs Firebase
 let currentUser = null;
 const authListeners = new Set();
 let currentToken = null;
@@ -34,8 +32,10 @@ export const configService = {
         API_URL = savedUrl;
       }
 
-      // Enforce online mode
-      STORAGE_MODE = 'online';
+      const savedMode = await AsyncStorage.getItem('STORAGE_MODE');
+      if (savedMode) {
+        STORAGE_MODE = savedMode;
+      }
       
       // Restore user session
       const savedToken = await AsyncStorage.getItem('USER_TOKEN');
@@ -69,7 +69,7 @@ const triggerAuthListeners = (user) => {
 };
 
 // Helper to add timeout to fetch
-const fetchWithTimeout = (url, options, timeout = 5000) => {
+const fetchWithTimeout = (url, options, timeout = 15000) => {
   return Promise.race([
     fetch(url, options),
     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
@@ -145,6 +145,7 @@ export const authService = {
 
   signOut: async () => {
     currentToken = null;
+    currentUser = null;
     await AsyncStorage.removeItem('USER_TOKEN');
     await AsyncStorage.removeItem('CURRENT_USER');
     triggerAuthListeners(null);
@@ -230,9 +231,9 @@ export const authService = {
 };
 
 export const dbService = {
-  getVideos: async () => {
+  getVideos: async (userId = null) => {
     try {
-      const fbVideos = await firebaseService.getVideos();
+      const fbVideos = await firebaseService.getVideos(userId);
       if (fbVideos) return fbVideos;
     } catch (e) {
       console.log('Firebase fetch failed:', e);
@@ -286,18 +287,118 @@ export const dbService = {
   },
 
   uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !') => {
-    return await firebaseService.uploadVideo(videoUri, caption);
+    if (STORAGE_MODE === 'online') {
+      return await firebaseService.uploadVideo(videoUri, caption);
+    }
+
+    // Mode LOCAL (Node.js)
+    console.log('Upload LOCAL vers:', API_URL);
+    const formData = new FormData();
+    formData.append('video', {
+      uri: Platform.OS === 'android' ? videoUri : videoUri.replace('file://', ''),
+      type: 'video/mp4',
+      name: `video_${Date.now()}.mp4`,
+    });
+    formData.append('caption', caption);
+    formData.append('user_id', currentUser ? currentUser.uid : 'user_local');
+
+    const res = await fetch(`${API_URL}/videos`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        // En multipart/form-data, le navigateur/RN définit le boundary automatiquement
+        'x-user-id': currentUser ? currentUser.uid : 'user_local'
+      },
+    });
+
+    if (!res.ok) throw new Error('Erreur d\'upload local');
+    return await res.json();
   },
 
   uploadAvatar: async (imageUri) => {
-    const result = await firebaseService.uploadAvatar(imageUri);
-    return { avatarUrl: result.avatarUrl };
+    if (STORAGE_MODE === 'online') {
+      const result = await firebaseService.uploadAvatar(imageUri);
+      if (currentUser) {
+        const updatedUser = { ...currentUser, avatar: result.avatarUrl };
+        currentUser = updatedUser;
+        await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(updatedUser));
+        triggerAuthListeners(updatedUser);
+      }
+      return result;
+    }
+
+    // Mode LOCAL (Node.js)
+    const formData = new FormData();
+    formData.append('avatar', {
+      uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+      type: 'image/jpeg',
+      name: `avatar_${Date.now()}.jpg`,
+    });
+
+    const res = await fetch(`${API_URL}/users/${currentUser?.uid}/avatar`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    if (!res.ok) throw new Error('Erreur d\'upload avatar local');
+    const result = await res.json();
+    
+    // Persistance locale
+    if (currentUser) {
+      const updatedUser = { ...currentUser, avatar: result.avatarUrl };
+      currentUser = updatedUser;
+      await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(updatedUser));
+      triggerAuthListeners(updatedUser);
+    }
+    return result;
+  },
+
+  updateProfile: async (data) => {
+    if (!currentUser) throw new Error('Utilisateur non connecté');
+    
+    if (STORAGE_MODE === 'online') {
+      const result = await firebaseService.updateProfile(currentUser.uid, data);
+      const updatedUser = { ...currentUser, ...data };
+      currentUser = updatedUser;
+      await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(updatedUser));
+      triggerAuthListeners(updatedUser);
+      return result;
+    }
+
+    // Mode LOCAL (Node.js)
+    const res = await fetch(`${API_URL}/users/${currentUser.uid}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser.uid
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) throw new Error('Erreur de mise à jour locale');
+    
+    const updatedUser = { ...currentUser, ...data };
+    currentUser = updatedUser;
+    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(updatedUser));
+    triggerAuthListeners(updatedUser);
+    return { success: true };
   },
 
   getUser: async (userId) => {
-    const res = await fetch(`${API_URL}/users/${userId}`);
-    if (!res.ok) throw new Error('Utilisateur introuvable');
-    return await res.json();
+    try {
+      // Priority to Firebase for profile details
+      const fbUser = await firebaseService.getUser(userId);
+      if (fbUser) return fbUser;
+
+      const res = await fetch(`${API_URL}/users/${userId}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.log('Error in getUser:', e);
+    }
+    throw new Error('Utilisateur introuvable');
   },
 };
 

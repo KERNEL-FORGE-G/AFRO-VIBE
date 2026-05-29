@@ -1,5 +1,5 @@
 // Profile Screen (Profil)
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   Dimensions,
   StatusBar,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  TextInput
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
@@ -27,14 +28,10 @@ export const ProfileScreen = ({ navigation }) => {
   const [myVideos, setMyVideos] = useState([]);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'liked' | 'bookmarks'
   const [loading, setLoading] = useState(true);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [editBioValue, setEditBioValue] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      loadProfileAndVideos();
-    }, [])
-  );
-
-  const loadProfileAndVideos = async () => {
+  const loadProfileAndVideos = useCallback(async () => {
     setLoading(true);
     try {
       const activeUser = authService.getCurrentUser();
@@ -45,12 +42,18 @@ export const ProfileScreen = ({ navigation }) => {
       
       // Load user details from server to get latest stats/avatar
       const userDetails = await dbService.getUser(activeUser.uid);
-      setProfile(userDetails);
+      setProfile(userDetails || {
+        ...activeUser,
+        bio: 'Afro Vibe Creator',
+        followers: 0,
+        following: 0,
+        likes: 0,
+        isVerified: false
+      });
+      setEditBioValue(userDetails?.bio || 'Afro Vibe Creator');
 
-      // Load videos (ideally filtered by user)
-      const videosList = await dbService.getVideos();
-      // Filter videos by current user
-      const filteredVideos = videosList.filter(v => v.user.username === activeUser.username);
+      // Load videos for this specific user
+      const filteredVideos = await dbService.getVideos(activeUser.uid);
       setMyVideos(filteredVideos);
     } catch (err) {
       console.error('Profile load error:', err);
@@ -65,7 +68,32 @@ export const ProfileScreen = ({ navigation }) => {
           likes: 0,
           isVerified: false
         });
+        setEditBioValue('Afro Vibe Creator');
       }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfileAndVideos();
+    }, [loadProfileAndVideos])
+  );
+
+  const handleEditProfile = () => {
+    setIsEditingBio(true);
+  };
+
+  const handleSaveBio = async () => {
+    try {
+      setLoading(true);
+      await dbService.updateProfile({ bio: editBioValue });
+      setProfile(prev => ({ ...prev, bio: editBioValue }));
+      setIsEditingBio(false);
+      Alert.alert('Succès', 'Profil mis à jour !');
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de mettre à jour le profil.');
     } finally {
       setLoading(false);
     }
@@ -179,16 +207,35 @@ export const ProfileScreen = ({ navigation }) => {
 
             {/* Buttons Row */}
             <View style={styles.actionButtonsRow}>
-              <TouchableOpacity style={styles.editProfileBtn}>
-                <Text style={styles.editProfileText}>Éditer le profil</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.bookmarkBtn}>
-                <SVGIcon name="inbox" size={18} color={COLORS.text} />
+              {isEditingBio ? (
+                <TouchableOpacity style={[styles.editProfileBtn, { backgroundColor: COLORS.primary }]} onPress={handleSaveBio}>
+                  <Text style={styles.editProfileText}>Sauvegarder</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
+                  <Text style={styles.editProfileText}>Éditer le profil</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.bookmarkBtn} onPress={() => isEditingBio && setIsEditingBio(false)}>
+                <SVGIcon name={isEditingBio ? "close" : "inbox"} size={18} color={COLORS.text} />
               </TouchableOpacity>
             </View>
 
             {/* Biography */}
-            <Text style={styles.bioText}>{profile?.bio || 'Pas encore de bio.'}</Text>
+            {isEditingBio ? (
+              <TextInput
+                style={styles.bioInput}
+                value={editBioValue}
+                onChangeText={setEditBioValue}
+                multiline
+                maxLength={150}
+                placeholder="Votre bio..."
+                placeholderTextColor={COLORS.textSecondary}
+                autoFocus
+              />
+            ) : (
+              <Text style={styles.bioText}>{profile?.bio || 'Pas encore de bio.'}</Text>
+            )}
 
             {/* Tab Selectors */}
             <View style={styles.tabsContainer}>
@@ -375,6 +422,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     paddingHorizontal: SPACING.xl,
     marginBottom: SPACING.lg,
+  },
+  bioInput: {
+    fontSize: 13,
+    color: COLORS.text,
+    textAlign: 'center',
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    padding: SPACING.sm,
+    marginHorizontal: SPACING.xl,
+    marginBottom: SPACING.lg,
+    width: width - SPACING.xl * 2,
+    minHeight: 60,
   },
   tabsContainer: {
     flexDirection: 'row',
