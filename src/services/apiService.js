@@ -232,14 +232,36 @@ export const authService = {
 
 export const dbService = {
   getVideos: async (userId = null) => {
+    // Si mode online, on essaie Firebase en priorité
+    if (STORAGE_MODE === 'online') {
+      try {
+        const fbVideos = await firebaseService.getVideos(userId);
+        if (fbVideos) return fbVideos;
+      } catch (e) {
+        console.log('Firebase fetch failed, falling back to local backend:', e);
+      }
+    }
+
+    // Mode LOCAL (Node.js) - On appelle explicitement le backend local
     try {
-      const fbVideos = await firebaseService.getVideos(userId);
-      if (fbVideos) return fbVideos;
+      const url = userId ? `${API_URL}/videos?userId=${userId}` : `${API_URL}/videos`;
+      console.log('DEBUG FRONTEND: Appel fetch vidéos local:', url);
+      const res = await fetch(url);
+
+      console.log('DEBUG FRONTEND: Status réponse:', res.status);
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('DEBUG FRONTEND: Données brutes reçues:', JSON.stringify(data, null, 2));
+        return data;
+      }
+
+      console.log('DEBUG FRONTEND: Erreur fetch videos status:', res.status);
+      return [];
     } catch (e) {
-      console.log('Firebase fetch failed:', e);
+      console.log('Error in local getVideos:', e);
       return [];
     }
-    return [];
   },
 
   likeVideo: async (videoId) => {
