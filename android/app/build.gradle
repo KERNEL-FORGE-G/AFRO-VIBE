@@ -58,7 +58,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -92,7 +92,7 @@ android {
             reset()
             enable true
             universalApk false
-            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+            include "armeabi-v7a", "arm64-v8a"
         }
     }
     signingConfigs {
@@ -139,8 +139,5 @@ dependencies {
     // Firebase Firestore
     implementation("com.google.firebase:firebase-firestore")
 
-    // Media3 dependencies for react-native-video
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
-    implementation("androidx.media3:media3-exoplayer-dash:1.4.1")
-    implementation("androidx.media3:media3-ui:1.4.1")
+
 }
