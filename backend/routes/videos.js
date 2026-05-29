@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
   const db = req.db;
   try {
     const videos = await db.all(`
-      SELECT v.*, u.username, u.fullName, u.avatar, u.isVerified
+      SELECT v.*, u.id as user_id, u.username, u.fullName, u.avatar, u.isVerified
       FROM videos v
       JOIN users u ON v.user_id = u.id
       ORDER BY v.created_at DESC
@@ -46,6 +46,7 @@ router.get('/', async (req, res) => {
       views: v.views >= 1000 ? (v.views/1000).toFixed(1) + 'K' : v.views.toString(),
       thumbnail: v.thumbnail,
       user: {
+        uid: v.user_id,
         username: v.username,
         fullName: v.fullName,
         avatar: v.avatar,
