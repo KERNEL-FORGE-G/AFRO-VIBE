@@ -53,8 +53,6 @@ router.get('/', async (req, res) => {
         isVerified: v.isVerified === 1
       }
     }));
-      }
-    }));
 
     console.log('DEBUG BACKEND: Videos formatées:', formattedVideos.length);
     res.json(formattedVideos);
