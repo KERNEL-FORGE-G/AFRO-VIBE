@@ -94,7 +94,10 @@ setupDatabase().then((db) => {
     }
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    // Augmenter le timeout pour les gros fichiers (10 minutes)
+    server.timeout = 600000;
+    
     const localIp = getLocalIp();
     const localUrl = `http://localhost:${PORT}`;
     const networkUrl = `http://${localIp}:${PORT}/api`;

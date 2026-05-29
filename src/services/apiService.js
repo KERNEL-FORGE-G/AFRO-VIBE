@@ -291,28 +291,32 @@ export const dbService = {
       return await firebaseService.uploadVideo(videoUri, caption);
     }
 
-    // Mode LOCAL (Node.js)
-    console.log('Upload LOCAL vers:', API_URL);
-    const formData = new FormData();
-    formData.append('video', {
-      uri: Platform.OS === 'android' ? videoUri : videoUri.replace('file://', ''),
-      type: 'video/mp4',
-      name: `video_${Date.now()}.mp4`,
-    });
-    formData.append('caption', caption);
-    formData.append('user_id', currentUser ? currentUser.uid : 'user_local');
+    // Mode LOCAL (Node.js) - Timeout de 10 minutes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600000);
 
-    const res = await fetch(`${API_URL}/videos`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        // En multipart/form-data, le navigateur/RN définit le boundary automatiquement
-        'x-user-id': currentUser ? currentUser.uid : 'user_local'
-      },
-    });
+    try {
+      console.log('Upload LOCAL vers:', API_URL);
+      const formData = new FormData();
+      formData.append('video', {
+        uri: Platform.OS === 'android' ? videoUri : videoUri.replace('file://', ''),
+        type: 'video/mp4',
+        name: `video_${Date.now()}.mp4`,
+      });
+      formData.append('caption', caption);
+      formData.append('user_id', currentUser ? currentUser.uid : 'user_local');
 
-    if (!res.ok) throw new Error('Erreur d\'upload local');
-    return await res.json();
+      const res = await fetch(`${API_URL}/videos`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error('Erreur d\'upload local');
+      return await res.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
   uploadAvatar: async (imageUri) => {
