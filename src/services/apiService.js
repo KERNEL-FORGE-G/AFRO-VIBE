@@ -242,21 +242,14 @@ export const dbService = {
       }
     }
 
-    // Mode LOCAL (Node.js) - On appelle explicitement le backend local
+    // Mode LOCAL (Node.js)
     try {
       const url = userId ? `${API_URL}/videos?userId=${userId}` : `${API_URL}/videos`;
-      console.log('DEBUG FRONTEND: Appel fetch vidéos local:', url);
       const res = await fetch(url);
 
-      console.log('DEBUG FRONTEND: Status réponse:', res.status);
-
       if (res.ok) {
-        const data = await res.json();
-        console.log('DEBUG FRONTEND: Données brutes reçues:', JSON.stringify(data, null, 2));
-        return data;
+        return await res.json();
       }
-
-      console.log('DEBUG FRONTEND: Erreur fetch videos status:', res.status);
       return [];
     } catch (e) {
       console.log('Error in local getVideos:', e);

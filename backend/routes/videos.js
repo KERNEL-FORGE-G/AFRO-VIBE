@@ -33,18 +33,18 @@ router.get('/', async (req, res) => {
       ORDER BY v.created_at DESC
     `);
 
-    // Format to match frontend structure
     const formattedVideos = videos.map(v => ({
       id: v.id,
       videoUrl: v.videoUrl,
       caption: v.caption,
-      likes: v.likes >= 1000 ? (v.likes/1000).toFixed(1) + 'K' : v.likes.toString(),
-      commentsCount: v.commentsCount.toString(),
-      shares: v.shares >= 1000 ? (v.shares/1000).toFixed(1) + 'K' : v.shares.toString(),
-      audioName: v.audioName,
-      category: v.category,
-      views: v.views >= 1000 ? (v.views/1000).toFixed(1) + 'K' : v.views.toString(),
-      thumbnail: v.thumbnail,
+      likes: v.likes || 0,
+      commentsCount: v.commentsCount || 0,
+      shares: v.shares || 0,
+      audioName: v.audioName || 'Son Original',
+      category: v.category || 'Danse',
+      views: v.views || 0,
+      thumbnail: v.thumbnail || 'logo.jpg',
+      isLiked: false, // Initialisation par défaut
       user: {
         uid: v.user_id || 'unknown',
         username: v.username || 'Utilisateur inconnu',
