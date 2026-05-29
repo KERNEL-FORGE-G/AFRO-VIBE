@@ -286,9 +286,9 @@ export const dbService = {
     return await res.json();
   },
 
-  uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !') => {
+  uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !', category = 'Danse') => {
     if (STORAGE_MODE === 'online') {
-      return await firebaseService.uploadVideo(videoUri, caption);
+      return await firebaseService.uploadVideo(videoUri, caption); // Note: Besoin de maj firebaseService.uploadVideo si catégorie requise
     }
 
     // Mode LOCAL (Node.js) - Timeout de 10 minutes
@@ -304,6 +304,7 @@ export const dbService = {
         name: `video_${Date.now()}.mp4`,
       });
       formData.append('caption', caption);
+      formData.append('category', category);
       formData.append('user_id', currentUser ? currentUser.uid : 'user_local');
 
       const res = await fetch(`${API_URL}/videos`, {
