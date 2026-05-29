@@ -33,6 +33,8 @@ router.get('/', async (req, res) => {
       ORDER BY v.created_at DESC
     `);
     
+    console.log('DEBUG BACKEND: Videos brutes SQL:', JSON.stringify(videos, null, 2));
+
     // Format to match frontend structure
     const formattedVideos = videos.map(v => ({
       id: v.id,
@@ -54,9 +56,10 @@ router.get('/', async (req, res) => {
       }
     }));
 
+    console.log('DEBUG BACKEND: Videos formatées:', formattedVideos.length);
     res.json(formattedVideos);
   } catch (err) {
-    console.error(err);
+    console.error('DEBUG BACKEND: Erreur SQL:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
