@@ -19,8 +19,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Middleware to mock JWT auth if we had it, but for simplicity we'll pass userId in body or just allow public
-const getUserId = (req) => req.headers['x-user-id'] || 'user_king';
+// Middleware to mock JWT auth
+const getUserId = (req) => req.headers['x-user-id'] || 'user_h4nwy4x';
 
 // Get all videos
 router.get('/', async (req, res) => {
