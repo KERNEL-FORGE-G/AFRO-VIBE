@@ -29,11 +29,9 @@ router.get('/', async (req, res) => {
     const videos = await db.all(`
       SELECT v.*, u.id as user_id, u.username, u.fullName, u.avatar, u.isVerified
       FROM videos v
-      JOIN users u ON v.user_id = u.id
+      LEFT JOIN users u ON v.user_id = u.id
       ORDER BY v.created_at DESC
     `);
-    
-    console.log('DEBUG BACKEND: Videos brutes SQL:', JSON.stringify(videos, null, 2));
 
     // Format to match frontend structure
     const formattedVideos = videos.map(v => ({
@@ -48,11 +46,13 @@ router.get('/', async (req, res) => {
       views: v.views >= 1000 ? (v.views/1000).toFixed(1) + 'K' : v.views.toString(),
       thumbnail: v.thumbnail,
       user: {
-        uid: v.user_id,
-        username: v.username,
-        fullName: v.fullName,
-        avatar: v.avatar,
+        uid: v.user_id || 'unknown',
+        username: v.username || 'Utilisateur inconnu',
+        fullName: v.fullName || 'Utilisateur inconnu',
+        avatar: v.avatar || 'logo.jpg',
         isVerified: v.isVerified === 1
+      }
+    }));
       }
     }));
 
