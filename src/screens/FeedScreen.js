@@ -33,13 +33,6 @@ export const FeedScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const isFocused = useIsFocused();
 
-  // Reload videos when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadVideos();
-    }, [loadVideos]) // Dépendance correcte
-  );
-
   const loadVideos = useCallback(async () => {
     try {
       const list = await dbService.getVideos();
@@ -51,6 +44,13 @@ export const FeedScreen = () => {
       console.error('Error loading videos:', err);
     }
   }, [activeVideoId]);
+
+  // Reload videos when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadVideos();
+    }, [loadVideos])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -126,7 +126,7 @@ export const FeedScreen = () => {
       return () => {
         if (animation) animation.stop();
       };
-    }, [isPlaying]);
+    }, [isPlaying, spinValue]);
 
     const spin = spinValue.interpolate({
       inputRange: [0, 1],

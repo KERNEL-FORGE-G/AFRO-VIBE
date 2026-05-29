@@ -30,7 +30,7 @@ export const AppNavigator = () => {
       if (initializing) setInitializing(false);
     });
     return unsubscribe;
-  }, []);
+  }, [initializing]);
 
   // Handle dynamic redirection upon auth status changes
   useEffect(() => {

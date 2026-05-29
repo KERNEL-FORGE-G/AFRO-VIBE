@@ -36,7 +36,7 @@ export const SoundDetailScreen = ({ route, navigation }) => {
     );
     animation.start();
     return () => animation.stop();
-  }, []);
+  }, [spinValue]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],

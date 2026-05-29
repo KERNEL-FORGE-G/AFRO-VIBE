@@ -1,5 +1,5 @@
 // Comments Bottom Sheet Component
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -24,18 +24,24 @@ export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const loadComments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await dbService.getComments(videoId);
+      setComments(data);
+    } catch (error) {
+      console.log('Error loading comments:', error);
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [videoId]);
+
   useEffect(() => {
     if (visible && videoId) {
       loadComments();
     }
-  }, [visible, videoId]);
-
-  const loadComments = async () => {
-    setLoading(true);
-    const data = await dbService.getComments(videoId);
-    setComments(data);
-    setLoading(false);
-  };
+  }, [visible, videoId, loadComments]);
 
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
