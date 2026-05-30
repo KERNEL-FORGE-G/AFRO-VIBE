@@ -52,8 +52,10 @@ export const ProfileScreen = ({ navigation }) => {
       });
       setEditBioValue(userDetails?.bio || 'Afro Vibe Creator');
 
-      // Load videos for this specific user
-      const filteredVideos = await dbService.getVideos(activeUser.uid);
+      // Load all videos
+      const allVideos = await dbService.getVideos();
+      // Filter for this specific user
+      const filteredVideos = allVideos.filter(v => v.user.uid === activeUser.uid);
       setMyVideos(filteredVideos);
     } catch (err) {
       console.error('Profile load error:', err);
