@@ -25,6 +25,25 @@ export const SoundDetailScreen = ({ route, navigation }) => {
   const spinValue = useRef(new Animated.Value(0)).current;
   const [videos, setVideos] = useState([]);
 
+  // Spin animation for the large vinyl disc
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 8000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   useEffect(() => {
     const fetchVideos = async () => {
       try {
