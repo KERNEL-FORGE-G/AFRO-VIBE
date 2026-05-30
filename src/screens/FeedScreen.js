@@ -199,6 +199,7 @@ export const FeedScreen = () => {
             videoUrl={item.videoUrl} 
             paused={!isPlaying || commentsVisible || isManuallyPaused} 
             thumbnail={item.thumbnail}
+            onSingleTap={() => togglePause(item.id)}
           />
           
           {isManuallyPaused && (

@@ -31,7 +31,7 @@ const fixVideoUrl = (url) => {
 
 
 
-export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }) => {
+export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, onSingleTap }) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showHeartAnim, setShowHeartAnim] = useState(false);
@@ -52,7 +52,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
     return (match && match[7].length === 11) ? match[7] : null;
   }, [videoUrl, isYouTube]);
 
-  const handleDoubleTap = () => {
+  const handleTap = () => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
@@ -72,8 +72,14 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
       ]).start(() => {
         setShowHeartAnim(false);
       });
+      lastTap.current = 0;
     } else {
       lastTap.current = now;
+      setTimeout(() => {
+        if (lastTap.current === now && onSingleTap) {
+          onSingleTap();
+        }
+      }, DOUBLE_PRESS_DELAY);
     }
   };
 
@@ -100,7 +106,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
   }
 
   return (
-    <TouchableWithoutFeedback onPress={handleDoubleTap}>
+    <TouchableWithoutFeedback onPress={handleTap}>
       <View style={styles.container}>
         {hasError ? (
           // Fallback view if the video file or player errors out
