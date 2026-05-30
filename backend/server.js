@@ -35,12 +35,28 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Initialize DB and start server
-setupDatabase().then((db) => {
+setupDatabase().then(async (db) => {
   // Attach DB to every request
   app.use((req, res, next) => {
     req.db = db;
     next();
   });
+
+  // Seed if empty
+  const videoCount = await db.get('SELECT COUNT(*) as count FROM videos');
+  console.log('Video count:', videoCount);
+  if (videoCount.count === 0) {
+    console.log('Seeding database...');
+    try {
+      await db.run(`INSERT INTO users (id, username, email, fullName, avatar) VALUES (?, ?, ?, ?, ?)`, ['user_king', 'King_Moves', 'king@afrovibe.com', 'Christian Mboa', 'logo.jpg']);
+      await db.run(`INSERT INTO videos (id, user_id, videoUrl, caption, likes, commentsCount, shares, audioName, category, views, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['vid_1', 'user_king', 'https://assets.mixkit.co/videos/preview/mixkit-young-woman-dancing-in-front-of-wall-with-neon-lights-42289-large.mp4', 'La danse c’est la langue du coeur ❤️🌍', 0, 0, 0, 'Afro Vibe Original', 'Danse', 128, 'logo.jpg']
+      );
+      console.log('Seeding complete.');
+    } catch (e) {
+      console.error('Seeding failed:', e);
+    }
+  }
 
   // ── Health check ──
   app.get('/api/health', (req, res) => {

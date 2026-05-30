@@ -52,7 +52,7 @@ export const CameraScreen = ({ navigation }) => {
         if (!camera.current) return;
         setRecording(true);
         
-        await camera.current.startRecording({
+        camera.current.startRecording({
           flash: flash === 'on' ? 'on' : 'off',
           onRecordingFinished: (video) => {
             console.log('Recording finished:', video.path);

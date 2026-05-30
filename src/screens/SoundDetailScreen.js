@@ -38,7 +38,7 @@ export const SoundDetailScreen = ({ route, navigation }) => {
     };
     fetchVideos();
   }, [soundName]);
-...
+
   const renderVideoThumbnail = ({ item }) => (
     <TouchableOpacity 
       style={styles.gridItem}
