@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import firebaseService from './firebaseService';
 
-let API_URL = 'http://10.0.2.2:3000/api'; // Default for Android Emulator
+let API_URL = 'http://10.2.9.113:3000/api'; // Default for Android 
 let STORAGE_MODE = 'offline'; // Par défaut en local pour éviter les erreurs Firebase
 let currentUser = null;
 const authListeners = new Set();
