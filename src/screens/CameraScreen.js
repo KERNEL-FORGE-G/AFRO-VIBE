@@ -45,11 +45,16 @@ export const CameraScreen = ({ navigation }) => {
 
   const handleRecord = async () => {
     if (recording) {
-      await camera.current.stopRecording();
+      if (camera.current) {
+        await camera.current.stopRecording();
+      }
       setRecording(false);
     } else {
       try {
-        if (!camera.current) return;
+        if (!camera.current) {
+          console.error('Camera ref is null');
+          return;
+        }
         setRecording(true);
         
         camera.current.startRecording({
