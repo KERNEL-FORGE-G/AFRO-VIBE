@@ -7,6 +7,7 @@ const setupDatabase = require('./database');
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/videos');
 const userRoutes = require('./routes/users');
+const messageRoutes = require('./routes/messages');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +55,9 @@ setupDatabase().then((db) => {
 
   // ── User routes ──
   app.use('/api/users', userRoutes);
+
+  // ── Message routes ──
+  app.use('/api/messages', messageRoutes);
 
   // ── Admin: list all users ──
   app.get('/api/users', async (req, res) => {

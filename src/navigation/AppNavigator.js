@@ -15,6 +15,7 @@ import SoundDetailScreen from '../screens/SoundDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import VideoEditScreen from '../screens/VideoEditScreen';
 import AdminDashboardScreen from '../screens/AdminDashboardScreen';
+import ChatScreen from '../screens/ChatScreen';
 
 const Stack = createStackNavigator();
 
@@ -80,6 +81,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="VideoEdit" component={VideoEditScreen} />
         <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

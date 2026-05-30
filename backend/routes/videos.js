@@ -69,6 +69,12 @@ router.post('/:id/like', async (req, res) => {
   const db = req.db;
   
   try {
+    // Ensure user exists
+    const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      await db.run('INSERT OR IGNORE INTO users (id, username, email) VALUES (?, ?, ?)', [userId, 'User_'+userId.substring(5,10), userId+'@local.com']);
+    }
+
     const existingLike = await db.get('SELECT * FROM likes WHERE video_id = ? AND user_id = ?', [videoId, userId]);
     
     if (existingLike) {
@@ -80,6 +86,20 @@ router.post('/:id/like', async (req, res) => {
       await db.run('UPDATE videos SET likes = likes + 1 WHERE id = ?', [videoId]);
       res.json({ isLiked: true });
     }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Share a video (increment share count)
+router.post('/:id/share', async (req, res) => {
+  const videoId = req.params.id;
+  const db = req.db;
+  
+  try {
+    await db.run('UPDATE videos SET shares = shares + 1 WHERE id = ?', [videoId]);
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -125,6 +145,12 @@ router.post('/:id/comments', async (req, res) => {
   const db = req.db;
   
   try {
+    // Ensure user exists
+    const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      await db.run('INSERT OR IGNORE INTO users (id, username, email) VALUES (?, ?, ?)', [userId, 'User_'+userId.substring(5,10), userId+'@local.com']);
+    }
+
     const commentId = 'com_' + Date.now();
     await db.run(`INSERT INTO comments (id, video_id, user_id, text) VALUES (?, ?, ?, ?)`, [commentId, videoId, userId, text]);
     await db.run('UPDATE videos SET commentsCount = commentsCount + 1 WHERE id = ?', [videoId]);

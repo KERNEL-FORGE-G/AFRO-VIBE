@@ -312,6 +312,18 @@ export const dbService = {
     if (!res.ok) throw new Error('Erreur');
     return await getResponseJson(res);
   },
+
+  shareVideo: async (videoId) => {
+    const res = await fetchWithTimeout(`${API_URL}/videos/${videoId}/share`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser ? currentUser.uid : 'user_king'
+      }
+    });
+    if (!res.ok) throw new Error('Erreur');
+    return await getResponseJson(res);
+  },
   
   createVideoPost: async (videoData) => {
     const res = await fetchWithTimeout(`${API_URL}/videos`, {
@@ -328,33 +340,47 @@ export const dbService = {
 
   uploadVideo: async (videoUri, caption = 'Nouvelle vidéo Afro Vibe !', category = 'Danse') => {
     if (STORAGE_MODE === 'online') {
-      return await firebaseService.uploadVideo(videoUri, caption); // Note: Besoin de maj firebaseService.uploadVideo si catégorie requise
+      return await firebaseService.uploadVideo(videoUri, caption);
     }
 
-    // Mode LOCAL (Node.js) - Timeout de 10 minutes
+    // Mode LOCAL (Node.js)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 600000);
 
     try {
-      console.log('Upload LOCAL vers:', API_URL);
+      console.log('Upload LOCAL de:', videoUri);
       const formData = new FormData();
+      
+      const cleanUri = Platform.OS === 'android' ? videoUri : videoUri.replace('file://', '');
+      
       formData.append('video', {
-        uri: Platform.OS === 'android' ? videoUri : videoUri.replace('file://', ''),
+        uri: cleanUri,
         type: 'video/mp4',
         name: `video_${Date.now()}.mp4`,
       });
       formData.append('caption', caption);
       formData.append('category', category);
-      formData.append('user_id', currentUser ? currentUser.uid : 'user_local');
 
       const res = await fetch(`${API_URL}/videos`, {
         method: 'POST',
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+          'x-user-id': currentUser ? currentUser.uid : 'user_local'
+        },
         signal: controller.signal,
       });
 
-      if (!res.ok) throw new Error('Erreur d\'upload local');
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Upload failed:', errorText);
+        throw new Error('Erreur d\'upload local');
+      }
       return await getResponseJson(res);
+    } catch (err) {
+      console.error('Fetch upload error:', err);
+      throw err;
     } finally {
       clearTimeout(timeoutId);
     }
@@ -384,7 +410,7 @@ export const dbService = {
       method: 'POST',
       body: formData,
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'x-user-id': currentUser?.uid
       },
     });
 
@@ -452,7 +478,36 @@ export const dbService = {
     } catch (e) {
       console.log('Error in local getUser:', e);
     }
+    
+    // Fallback: Si c'est l'utilisateur actuel et qu'on est en offline, on retourne ses données locales
+    if (currentUser && currentUser.uid === userId) {
+      return currentUser;
+    }
+
     throw new Error('Utilisateur introuvable');
+  },
+
+  getMessages: async (otherUserId) => {
+    const res = await fetch(`${API_URL}/messages/${otherUserId}`, {
+      headers: {
+        'x-user-id': currentUser?.uid || 'user_king'
+      }
+    });
+    if (!res.ok) throw new Error('Erreur messages');
+    return await getResponseJson(res);
+  },
+
+  sendMessage: async (receiverId, text) => {
+    const res = await fetch(`${API_URL}/messages/${receiverId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': currentUser?.uid || 'user_king'
+      },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) throw new Error('Erreur envoi message');
+    return await getResponseJson(res);
   },
 };
 

@@ -11,8 +11,8 @@
     "start": "react-native start",
     "test": "jest",
     "logo": "node logo/compile.js",
-    "server": "cd backend && node server.js",
-    "server:dev": "cd backend && node --watch server.js"
+    "server": "npx kill-port 3000 && cd backend && node server.js",
+    "server:dev": "npx kill-port 3000 && cd backend && node --watch server.js"
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

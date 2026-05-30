@@ -31,6 +31,7 @@ export const FeedScreen = () => {
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [pausedVideos, setPausedVideos] = useState(new Set());
   const isFocused = useIsFocused();
 
   const loadVideos = useCallback(async () => {
@@ -84,6 +85,43 @@ export const FeedScreen = () => {
     } catch (err) {
       console.error('Like error:', err);
     }
+  };
+
+  const handleShare = async (videoId) => {
+    try {
+      await dbService.shareVideo(videoId);
+      setVideos(prev => prev.map(v => {
+        if (v.id === videoId) {
+          const currentSharesStr = v.shares.toString();
+          let numericShares = parseFloat(currentSharesStr);
+          if (currentSharesStr.includes('K')) {
+            numericShares = numericShares * 1000;
+          }
+          const newShares = numericShares + 1;
+          const newSharesStr = newShares >= 1000 ? (newShares / 1000).toFixed(1) + 'K' : newShares.toString();
+          
+          return {
+            ...v,
+            shares: newSharesStr,
+          };
+        }
+        return v;
+      }));
+    } catch (err) {
+      console.error('Share error:', err);
+    }
+  };
+
+  const togglePause = (videoId) => {
+    setPausedVideos(prev => {
+      const next = new Set(prev);
+      if (next.has(videoId)) {
+        next.delete(videoId);
+      } else {
+        next.add(videoId);
+      }
+      return next;
+    });
   };
 
   const openComments = (videoId) => {
@@ -147,15 +185,28 @@ export const FeedScreen = () => {
 
   const renderVideoItem = ({ item, index }) => {
     const isPlaying = isFocused && index === currentVisibleIndex;
+    const isManuallyPaused = pausedVideos.has(item.id);
     
     return (
       <View style={styles.videoContainer}>
         {/* Fullscreen Video Player */}
-        <VideoPlayerView 
-          videoUrl={item.videoUrl} 
-          paused={!isPlaying || commentsVisible} 
-          thumbnail={item.thumbnail}
-        />
+        <TouchableOpacity 
+          activeOpacity={1} 
+          onPress={() => togglePause(item.id)}
+          style={StyleSheet.absoluteFill}
+        >
+          <VideoPlayerView 
+            videoUrl={item.videoUrl} 
+            paused={!isPlaying || commentsVisible || isManuallyPaused} 
+            thumbnail={item.thumbnail}
+          />
+          
+          {isManuallyPaused && (
+            <View style={styles.pauseOverlay}>
+              <SVGIcon name="play" size={60} color="rgba(255,255,255,0.6)" />
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Bottom Overlay Info */}
         <View style={styles.bottomInfoContainer}>
@@ -207,7 +258,10 @@ export const FeedScreen = () => {
           </TouchableOpacity>
 
           {/* Share Button */}
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => handleShare(item.id)}
+          >
             <SVGIcon name="share" size={32} color={COLORS.text} />
             <Text style={styles.actionText}>{item.shares}</Text>
           </TouchableOpacity>
@@ -315,6 +369,16 @@ const styles = StyleSheet.create({
   videoContainer: {
     width: width,
     height: FEED_HEIGHT,
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
   },
   bottomInfoContainer: {
     position: 'absolute',

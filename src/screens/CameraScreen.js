@@ -11,7 +11,7 @@ import {
   Alert,
   AppState
 } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, useVideoOutput } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { useIsFocused } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
@@ -28,8 +28,7 @@ export const CameraScreen = ({ navigation }) => {
   const [flash, setFlash] = useState('off');
   const [cameraType, setCameraType] = useState('back');
   
-  const [recorder, setRecorder] = useState(null);
-  const videoOutput = useVideoOutput();
+  const camera = useRef(null);
 
   const isFocused = useIsFocused();
   const [appState, setAppState] = useState(AppState.currentState);
@@ -46,33 +45,28 @@ export const CameraScreen = ({ navigation }) => {
 
   const handleRecord = async () => {
     if (recording) {
-      if (recorder) {
-        await recorder.stopRecording();
-        setRecording(false);
-      }
+      await camera.current.stopRecording();
+      setRecording(false);
     } else {
       try {
-        setLoading(true);
-        const newRecorder = await videoOutput.createRecorder({
-          flash: flash === 'on' ? 'on' : 'off',
-        });
-        setRecorder(newRecorder);
+        if (!camera.current) return;
         setRecording(true);
         
-        await newRecorder.startRecording(
-          (path) => {
-            console.log('Recording finished:', path);
+        await camera.current.startRecording({
+          flash: flash === 'on' ? 'on' : 'off',
+          onRecordingFinished: (video) => {
+            console.log('Recording finished:', video.path);
             setRecording(false);
             setLoading(false);
-            navigation.navigate('VideoEdit', { videoUri: path.path });
+            navigation.navigate('VideoEdit', { videoUri: video.path });
           },
-          (error) => {
+          onRecordingError: (error) => {
             console.error('Recording error:', error);
             setRecording(false);
             setLoading(false);
             Alert.alert('Erreur', 'L\'enregistrement s\'est arrêté.');
           }
-        );
+        });
       } catch (e) {
         console.error('Start recording error:', e);
         setRecording(false);
@@ -148,12 +142,12 @@ export const CameraScreen = ({ navigation }) => {
         {/* Real Camera Preview */}
         {isCameraActive && (
           <Camera
+            ref={camera}
             style={StyleSheet.absoluteFill}
             device={device}
             isActive={true}
             video={true}
             audio={hasMicPermission}
-            outputs={[videoOutput]}
           />
         )}
 

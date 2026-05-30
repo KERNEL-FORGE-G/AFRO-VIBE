@@ -60,6 +60,16 @@ async function setupDatabase() {
       FOREIGN KEY (user_id) REFERENCES users (id),
       UNIQUE(video_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      sender_id TEXT,
+      receiver_id TEXT,
+      text TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sender_id) REFERENCES users (id),
+      FOREIGN KEY (receiver_id) REFERENCES users (id)
+    );
   `);
 
   // No seed data — the database starts clean.

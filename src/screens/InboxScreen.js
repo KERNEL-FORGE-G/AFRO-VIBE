@@ -1,5 +1,5 @@
 // Inbox Screen (Boîte de Réception)
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -8,19 +8,43 @@ import {
   Image, 
   TouchableOpacity, 
   ScrollView,
-  StatusBar
+  StatusBar,
+  Alert
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import { MOCK_NOTIFICATIONS, MOCK_USERS } from '../services/mockData';
 
 export const InboxScreen = () => {
-  
+  const navigation = useNavigation();
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
   const creators = Object.values(MOCK_USERS);
 
+  const deleteNotification = (id) => {
+    Alert.alert(
+      "Supprimer",
+      "Voulez-vous supprimer ce message ?",
+      [
+        { text: "Annuler", style: "cancel" },
+        { 
+          text: "Supprimer", 
+          style: "destructive", 
+          onPress: () => {
+            setNotifications(prev => prev.filter(n => n.id !== id));
+          }
+        }
+      ]
+    );
+  };
+
   const renderCreatorStory = (creator) => (
-    <TouchableOpacity key={creator.username} style={styles.storyWrapper}>
+    <TouchableOpacity 
+      key={creator.username} 
+      style={styles.storyWrapper}
+      onPress={() => navigation.navigate('Chat', { otherUser: creator })}
+    >
       <View style={styles.avatarBorder}>
         <Image 
           source={require('../assets/images/logo.jpg')} // Fallback image setup
@@ -48,7 +72,11 @@ export const InboxScreen = () => {
   };
 
   const renderNotificationItem = ({ item }) => (
-    <TouchableOpacity style={[styles.notificationItem, item.unread && styles.unreadItem]}>
+    <TouchableOpacity 
+      style={[styles.notificationItem, item.unread && styles.unreadItem]}
+      onPress={() => navigation.navigate('Chat', { otherUser: item.user })}
+      onLongPress={() => deleteNotification(item.id)}
+    >
       <View style={styles.notifAvatarContainer}>
         <Image 
           source={require('../assets/images/logo.jpg')} // Fallback image setup
@@ -106,7 +134,7 @@ export const InboxScreen = () => {
 
       {/* Notification List */}
       <FlatList
-        data={MOCK_NOTIFICATIONS}
+        data={notifications}
         keyExtractor={item => item.id}
         renderItem={renderNotificationItem}
         contentContainerStyle={styles.listContent}
