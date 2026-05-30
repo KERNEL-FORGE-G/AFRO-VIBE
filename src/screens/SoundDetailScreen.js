@@ -15,7 +15,7 @@ import {
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
-import { MOCK_VIDEOS } from '../services/mockData';
+import { dbService } from '../services/apiService';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = width / 3 - 2;
@@ -23,39 +23,35 @@ const GRID_ITEM_WIDTH = width / 3 - 2;
 export const SoundDetailScreen = ({ route, navigation }) => {
   const soundName = route?.params?.soundName || 'Afro Vibe Original';
   const spinValue = useRef(new Animated.Value(0)).current;
+  const [videos, setVideos] = useState([]);
 
-  // Spin animation for the large vinyl disc
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 8000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [spinValue]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
+    const fetchVideos = async () => {
+      try {
+        const allVideos = await dbService.getVideos();
+        // Filtrer par audioName si possible, sinon afficher tout
+        const filtered = allVideos.filter(v => v.audioName === soundName);
+        setVideos(filtered.length > 0 ? filtered : allVideos);
+      } catch (err) {
+        console.error('Error fetching videos for sound:', err);
+      }
+    };
+    fetchVideos();
+  }, [soundName]);
+...
   const renderVideoThumbnail = ({ item }) => (
     <TouchableOpacity 
       style={styles.gridItem}
       onPress={() => navigation.navigate('MainTabs', { screen: 'Accueil' })}
     >
       <Image 
-        source={require('../assets/images/banner_mock.jpg')} // Fallback
+        source={{ uri: item.videoUrl || item.thumbnail }}
         style={styles.thumbnail}
         resizeMode="cover"
       />
       <View style={styles.viewsContainer}>
         <SVGIcon name="music" size={10} color={COLORS.text} style={styles.viewsIcon} />
-        <Text style={styles.viewsText}>{item.views || '12.5K'}</Text>
+        <Text style={styles.viewsText}>{item.views || '0'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -78,7 +74,7 @@ export const SoundDetailScreen = ({ route, navigation }) => {
 
       {/* Audio Info Board */}
       <FlatList
-        data={MOCK_VIDEOS}
+        data={videos}
         keyExtractor={item => item.id}
         renderItem={renderVideoThumbnail}
         numColumns={3}
@@ -99,8 +95,8 @@ export const SoundDetailScreen = ({ route, navigation }) => {
               {/* Disc Center needle styling */}
               <View style={styles.detailsTextContainer}>
                 <Text style={styles.soundTitle} numberOfLines={1}>{soundName}</Text>
-                <Text style={styles.soundCreator}>AfroVibe Team</Text>
-                <Text style={styles.videoCountText}>12.4K vidéos créées</Text>
+                <Text style={styles.soundCreator}>Utilisateur AfroVibe</Text>
+                <Text style={styles.videoCountText}>{videos.length} vidéos créées</Text>
                 
                 {/* Favorite Action Button */}
                 <TouchableOpacity style={styles.favBtn}>
