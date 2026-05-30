@@ -31,20 +31,18 @@ const fixVideoUrl = (url) => {
 
 
 
-export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, onSingleTap }) => {
+export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, onSingleTap, onDoubleTap }) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showHeartAnim, setShowHeartAnim] = useState(false);
   const heartScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
 
-  //..
+  // ... (fixVideoUrl, isYouTube, youtubeId functions) ...
   const fixedUrl = useMemo(() => fixVideoUrl(videoUrl), [videoUrl]);
-
   const isYouTube = useMemo(() => {
     return videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
   }, [videoUrl]);
-
   const youtubeId = useMemo(() => {
     if (!isYouTube) return null;
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
@@ -55,6 +53,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
   const handleTap = () => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
+    
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
       // Trigger like animation
       setShowHeartAnim(true);
@@ -72,6 +71,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
       ]).start(() => {
         setShowHeartAnim(false);
       });
+      if (onDoubleTap) onDoubleTap();
       lastTap.current = 0;
     } else {
       lastTap.current = now;

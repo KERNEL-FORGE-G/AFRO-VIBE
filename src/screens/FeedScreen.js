@@ -190,24 +190,19 @@ export const FeedScreen = () => {
     return (
       <View style={styles.videoContainer}>
         {/* Fullscreen Video Player */}
-        <TouchableOpacity 
-          activeOpacity={1} 
-          onPress={() => togglePause(item.id)}
-          style={StyleSheet.absoluteFill}
-        >
-          <VideoPlayerView 
-            videoUrl={item.videoUrl} 
-            paused={!isPlaying || commentsVisible || isManuallyPaused} 
-            thumbnail={item.thumbnail}
-            onSingleTap={() => togglePause(item.id)}
-          />
-          
-          {isManuallyPaused && (
-            <View style={styles.pauseOverlay}>
-              <SVGIcon name="play" size={60} color="rgba(255,255,255,0.6)" />
-            </View>
-          )}
-        </TouchableOpacity>
+        <VideoPlayerView 
+          videoUrl={item.videoUrl} 
+          paused={!isPlaying || commentsVisible || isManuallyPaused} 
+          thumbnail={item.thumbnail}
+          onSingleTap={() => togglePause(item.id)}
+          onDoubleTap={() => handleLike(item.id)}
+        />
+        
+        {isManuallyPaused && (
+          <View style={styles.pauseOverlay}>
+            <SVGIcon name="play" size={60} color="rgba(255,255,255,0.6)" />
+          </View>
+        )}
 
         {/* Bottom Overlay Info */}
         <View style={styles.bottomInfoContainer}>
