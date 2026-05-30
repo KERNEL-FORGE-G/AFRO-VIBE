@@ -22,13 +22,9 @@ const TARGETS = [
 const EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 
 function findLogoFile() {
-  const files = fs.readdirSync(LOGO_DIR);
-  for (const file of files) {
-    if (file === 'compile.js') continue;
-    const ext = path.extname(file).toLowerCase();
-    if (EXTENSIONS.includes(ext)) {
-      return path.join(LOGO_DIR, file);
-    }
+  const logoPath = path.join(LOGO_DIR, 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    return logoPath;
   }
   return null;
 }
