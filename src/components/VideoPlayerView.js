@@ -13,6 +13,23 @@ import Video from 'react-native-video';
 import YouTube from 'react-native-youtube-iframe';
 import { COLORS } from '../styles/theme';
 import SVGIcon from './SVGIcon';
+//..
+const SERVER_IP = '10.2.9.113';
+const BASE_URL = `http://${SERVER_IP}:3000`;
+
+const fixVideoUrl = (url) => {
+  if (!url) return url;
+
+  if (url.startsWith('/')) {
+    return `${BASE_URL}${url}`;
+  }
+  return url
+    .replace(/localhost/g, SERVER_IP)
+    .replace(/127\.0\.0\.1/g, SERVER_IP)
+    .replace(/192\.168\.56\.1/g, SERVER_IP);
+};
+
+
 
 export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }) => {
   const [loading, setLoading] = useState(true);
@@ -20,6 +37,9 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
   const [showHeartAnim, setShowHeartAnim] = useState(false);
   const heartScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
+
+  //..
+  const fixedUrl = useMemo(() => fixVideoUrl(videoUrl), [videoUrl]);
 
   const isYouTube = useMemo(() => {
     return videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
@@ -112,7 +132,8 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
           </View>
         ) : (
           <Video
-            source={{ uri: videoUrl }}
+            //source={{ uri: videoUrl }}
+            source={{ uri: fixedUrl }}
             style={styles.videoPlayer}
             resizeMode="cover"
             repeat={true}
@@ -124,6 +145,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail }
             onLoad={onLoad}
             onError={onError}
             ignoreSilentSwitch="obey"
+            
           />
         )}
 

@@ -23,7 +23,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url "$rootDir/../node_modules/@notifee/react-native/android/libs" }
     }
+}
+
+ext {
+    androidXMedia3Version = "1.4.1"
 }
 
 apply plugin: "com.facebook.react.rootproject"
