@@ -42,15 +42,16 @@ export const SettingsScreen = ({ navigation }) => {
     }
   };
 
-  const handleToggleStorage = async (value) => {
-    const newMode = value ? 'online' : 'offline';
-    setStorageMode(newMode);
+  const handleToggleStorage = async (mode) => {
+    setStorageMode(mode);
     try {
-      await configService.setStorageMode(newMode);
-      Alert.alert(
-        'Mode de stockage', 
-        `L'application utilise désormais le mode ${newMode === 'online' ? 'En ligne (Firebase)' : 'Hors-ligne (Local Node.js)'}.`
-      );
+      await configService.setStorageMode(mode);
+      let modeLabel = '';
+      if (mode === 'online') modeLabel = 'En ligne (Firebase)';
+      else if (mode === 'cloudinary') modeLabel = 'Cloudinary (via Backend)';
+      else modeLabel = 'Hors-ligne (Local Node.js)';
+      
+      Alert.alert('Mode de stockage', `L'application utilise désormais le mode ${modeLabel}.`);
     } catch (e) {
       Alert.alert('Erreur', 'Impossible de changer le mode de stockage.');
     }
@@ -155,22 +156,50 @@ export const SettingsScreen = ({ navigation }) => {
           />
         </View>
 
-        {/* Storage Mode Toggle */}
-        <View style={styles.optionRow}>
+        {/* Storage Mode Selection */}
+        <Text style={styles.sectionHeader}>Mode de stockage</Text>
+        
+        <TouchableOpacity 
+          style={[styles.optionRow, storageMode === 'online' && styles.selectedOption]} 
+          onPress={() => handleToggleStorage('online')}
+        >
           <View style={styles.optionLeft}>
-            <SVGIcon name="live" size={20} color={COLORS.textSecondary} style={styles.optionIcon} />
+            <SVGIcon name="live" size={20} color={storageMode === 'online' ? COLORS.accent : COLORS.textSecondary} style={styles.optionIcon} />
             <View>
-              <Text style={styles.optionLabel}>Stockage Firebase (Online)</Text>
-              <Text style={styles.optionSubLabel}>Désactivez pour le mode local Node.js</Text>
+              <Text style={[styles.optionLabel, storageMode === 'online' && styles.selectedText]}>Firebase Storage</Text>
+              <Text style={styles.optionSubLabel}>Utiliser le cloud Google Firebase</Text>
             </View>
           </View>
-          <Switch 
-            value={storageMode === 'online'} 
-            onValueChange={handleToggleStorage}
-            trackColor={{ false: COLORS.border, true: COLORS.primary }}
-            thumbColor={storageMode === 'online' ? COLORS.accent : '#f4f3f4'}
-          />
-        </View>
+          {storageMode === 'online' && <SVGIcon name="discover" size={14} color={COLORS.accent} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.optionRow, storageMode === 'cloudinary' && styles.selectedOption]} 
+          onPress={() => handleToggleStorage('cloudinary')}
+        >
+          <View style={styles.optionLeft}>
+            <SVGIcon name="adinkra1" size={20} color={storageMode === 'cloudinary' ? COLORS.accent : COLORS.textSecondary} style={styles.optionIcon} />
+            <View>
+              <Text style={[styles.optionLabel, storageMode === 'cloudinary' && styles.selectedText]}>Cloudinary Cloud</Text>
+              <Text style={styles.optionSubLabel}>Optimisation vidéo et stockage CDN</Text>
+            </View>
+          </View>
+          {storageMode === 'cloudinary' && <SVGIcon name="discover" size={14} color={COLORS.accent} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.optionRow, storageMode === 'offline' && styles.selectedOption]} 
+          onPress={() => handleToggleStorage('offline')}
+        >
+          <View style={styles.optionLeft}>
+            <SVGIcon name="settings" size={20} color={storageMode === 'offline' ? COLORS.accent : COLORS.textSecondary} style={styles.optionIcon} />
+            <View>
+              <Text style={[styles.optionLabel, storageMode === 'offline' && styles.selectedText]}>Local Backend</Text>
+              <Text style={styles.optionSubLabel}>Stockage sur le disque dur du serveur local</Text>
+            </View>
+          </View>
+          {storageMode === 'offline' && <SVGIcon name="discover" size={14} color={COLORS.accent} />}
+        </TouchableOpacity>
 
         {/* Section: Server Configuration */}
         <Text style={styles.sectionHeader}>Configuration Serveur Local</Text>
@@ -319,6 +348,14 @@ const styles = StyleSheet.create({
   optionLabel: {
     color: COLORS.text,
     fontSize: 14,
+  },
+  selectedOption: {
+    borderColor: COLORS.accent,
+    backgroundColor: 'rgba(255, 171, 0, 0.05)',
+  },
+  selectedText: {
+    color: COLORS.accent,
+    fontWeight: 'bold',
   },
   optionSubLabel: {
     color: COLORS.textSecondary,

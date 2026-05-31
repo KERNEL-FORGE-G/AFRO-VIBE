@@ -35,11 +35,46 @@ const getResponseJson = async (response) => {
 
 export const configService = {
   getApiUrl: () => API_URL,
+  getBaseUrl: () => API_URL.replace(/\/api$/, ''),
   getStorageMode: () => STORAGE_MODE,
   setStorageMode: async (mode) => {
     STORAGE_MODE = mode;
     await AsyncStorage.setItem('STORAGE_MODE', mode);
   },
+  
+  fixMediaUrl: (url) => {
+    if (!url) return null;
+    
+    const baseUrl = API_URL.replace(/\/api$/, '');
+    const currentHost = baseUrl.replace(/^https?:\/\//, '');
+
+    // If it's a full URL, check if it points to localhost and replace it if necessary
+    if (url.startsWith('http') || url.startsWith('https')) {
+      return url
+        .replace(/localhost:3000/g, currentHost)
+        .replace(/127\.0\.0\.1:3000/g, currentHost)
+        .replace(/10\.0\.2\.2:3000/g, currentHost);
+    }
+    
+    if (url.startsWith('data:')) {
+      return url;
+    }
+    
+    // Handle specific local image assets or defaults
+    if (url === 'logo.jpg' || url === 'logo.png' || url === 'avatar_mock.jpg' || url === 'banner_mock.jpg') {
+      // If it doesn't contain a slash, try to find it in uploads first, then root
+      if (!url.includes('/')) return `${baseUrl}/uploads/${url}`;
+    }
+
+    if (url.startsWith('/')) {
+      // If it starts with /uploads, it's already good, just prepend baseUrl
+      return `${baseUrl}${url}`;
+    }
+    
+    // Default to uploads folder for relative paths
+    return `${baseUrl}/uploads/${url}`;
+  },
+
   setApiUrl: async (url) => {
     const cleanedUrl = normalizeApiUrl(url);
     API_URL = cleanedUrl;
@@ -343,12 +378,12 @@ export const dbService = {
       return await firebaseService.uploadVideo(videoUri, caption);
     }
 
-    // Mode LOCAL (Node.js)
+    // Mode LOCAL ou CLOUDINARY (via Node.js)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 600000);
 
     try {
-      console.log('Upload LOCAL de:', videoUri);
+      console.log(`Upload ${STORAGE_MODE === 'cloudinary' ? 'CLOUDINARY' : 'LOCAL'} de:`, videoUri);
       const formData = new FormData();
       
       const cleanUri = Platform.OS === 'android' ? videoUri : videoUri.replace('file://', '');
@@ -360,13 +395,15 @@ export const dbService = {
       });
       formData.append('caption', caption);
       formData.append('category', category);
+      if (STORAGE_MODE === 'cloudinary') {
+        formData.append('useCloudinary', 'true');
+      }
 
       const res = await fetch(`${API_URL}/videos`, {
         method: 'POST',
         body: formData,
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'multipart/form-data',
           'x-user-id': currentUser ? currentUser.uid : 'user_local'
         },
         signal: controller.signal,
@@ -375,7 +412,7 @@ export const dbService = {
       if (!res.ok) {
         const errorText = await res.text();
         console.error('Upload failed:', errorText);
-        throw new Error('Erreur d\'upload local');
+        throw new Error('Erreur d\'upload');
       }
       return await getResponseJson(res);
     } catch (err) {
@@ -398,13 +435,16 @@ export const dbService = {
       return result;
     }
 
-    // Mode LOCAL (Node.js)
+    // Mode LOCAL ou CLOUDINARY (via Node.js)
     const formData = new FormData();
     formData.append('avatar', {
       uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
       type: 'image/jpeg',
       name: `avatar_${Date.now()}.jpg`,
     });
+    if (STORAGE_MODE === 'cloudinary') {
+      formData.append('useCloudinary', 'true');
+    }
 
     const res = await fetch(`${API_URL}/users/${currentUser?.uid}/avatar`, {
       method: 'POST',
@@ -414,12 +454,16 @@ export const dbService = {
       },
     });
 
-    if (!res.ok) throw new Error('Erreur d\'upload avatar local');
+    if (!res.ok) throw new Error('Erreur d\'upload avatar');
     const result = await getResponseJson(res);
+    
+    // Fix URL before saving
+    const fixedAvatarUrl = configService.fixMediaUrl(result.avatarUrl);
+    result.avatarUrl = fixedAvatarUrl;
     
     // Persistance locale
     if (currentUser) {
-      const updatedUser = { ...currentUser, avatar: result.avatarUrl };
+      const updatedUser = { ...currentUser, avatar: fixedAvatarUrl };
       currentUser = updatedUser;
       await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(updatedUser));
       triggerAuthListeners(updatedUser);

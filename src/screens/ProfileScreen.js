@@ -17,8 +17,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
-import { authService, dbService } from '../services/apiService';
+import VideoPlayerView from '../components/VideoPlayerView';
+import { authService, dbService, configService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
+import RNFS from 'react-native-fs';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = width / 3 - 2;
@@ -42,6 +44,12 @@ export const ProfileScreen = ({ navigation }) => {
       
       // Load user details from server to get latest stats/avatar
       const userDetails = await dbService.getUser(activeUser.uid);
+      
+      // Fix avatar URL
+      if (userDetails && userDetails.avatar) {
+        userDetails.avatar = configService.fixMediaUrl(userDetails.avatar);
+      }
+
       setProfile(userDetails || {
         ...activeUser,
         bio: 'Afro Vibe Creator',
@@ -64,6 +72,7 @@ export const ProfileScreen = ({ navigation }) => {
       if (activeUser) {
         setProfile({
           ...activeUser,
+          avatar: configService.fixMediaUrl(activeUser.avatar),
           bio: 'Afro Vibe Creator',
           followers: 0,
           following: 0,
@@ -102,18 +111,38 @@ export const ProfileScreen = ({ navigation }) => {
   };
 
   const handleAvatarPick = async () => {
-    const result = await launchImageLibrary({ mediaType: 'photo' });
+    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
     if (result.didCancel || !result.assets || result.assets.length === 0) return;
     
     setLoading(true);
     try {
-      const uri = result.assets[0].uri;
-      const res = await dbService.uploadAvatar(uri);
-      // Update profile with new avatar
+      const sourceUri = result.assets[0].uri;
+      const fileName = `avatar_${Date.now()}.jpg`;
+      
+      // 1. Sauvegarde locale sur le téléphone dans "AFRO-SOUND"
+      const destDir = `${RNFS.ExternalDirectoryPath}/AFRO-SOUND`;
+      const destPath = `${destDir}/${fileName}`;
+      
+      try {
+        const exists = await RNFS.exists(destDir);
+        if (!exists) {
+          await RNFS.mkdir(destDir);
+        }
+        await RNFS.copyFile(sourceUri, destPath);
+        console.log('Avatar sauvegardé localement dans AFRO-SOUND:', destPath);
+      } catch (fsErr) {
+        console.warn('Erreur lors de la sauvegarde locale (AFRO-SOUND):', fsErr);
+        // On continue quand même l'upload même si la copie locale échoue
+      }
+
+      // 2. Upload vers le backend (qui gère ensuite Cloudinary si configuré)
+      const res = await dbService.uploadAvatar(sourceUri);
+      
+      // Update profile with new avatar (res already has fixed URL from dbService)
       setProfile(prev => ({ ...prev, avatar: res.avatarUrl }));
-      Alert.alert('Succès', 'Avatar mis à jour !');
+      Alert.alert('Succès', 'Avatar mis à jour et sauvegardé !');
     } catch (err) {
-      console.error('Avatar upload error:', err);
+      console.error('Avatar process error:', err);
       Alert.alert('Erreur', 'Impossible de mettre à jour l\'avatar.');
     } finally {
       setLoading(false);
@@ -123,15 +152,23 @@ export const ProfileScreen = ({ navigation }) => {
   const renderVideoThumbnail = ({ item }) => (
     <TouchableOpacity 
       style={styles.gridItem}
-      onPress={() => navigation.navigate('SoundDetail', { soundName: item.audioName })}
+      onPress={() => navigation.navigate('MainTabs', { 
+        screen: 'Accueil', 
+        params: { initialVideoId: item.id } 
+      })}
     >
-      <Image 
-        source={require('../assets/images/banner_mock.jpg')} // Fallback
-        style={styles.thumbnail}
-        resizeMode="cover"
+      <VideoPlayerView 
+        videoUrl={item.videoUrl} 
+        paused={false} 
+        isMuted={true}
+        thumbnail={item.thumbnail}
+        onSingleTap={() => navigation.navigate('MainTabs', { 
+          screen: 'Accueil', 
+          params: { initialVideoId: item.id } 
+        })}
       />
       <View style={styles.viewsContainer}>
-        <SVGIcon name="music" size={10} color={COLORS.text} style={styles.viewsIcon} />
+        <SVGIcon name="play" size={10} color={COLORS.text} style={styles.viewsIcon} />
         <Text style={styles.viewsText}>{item.views || '0'}</Text>
       </View>
     </TouchableOpacity>
@@ -464,10 +501,6 @@ const styles = StyleSheet.create({
     margin: 1,
     position: 'relative',
     backgroundColor: COLORS.cardBackground,
-  },
-  thumbnail: {
-    width: '100%',
-    height: '100%',
   },
   viewsContainer: {
     position: 'absolute',

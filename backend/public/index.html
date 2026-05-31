@@ -235,7 +235,7 @@
         <span class="section-count" id="count-videos-dash">—</span>
       </div>
       <table>
-        <thead><tr><th>Créateur</th><th>Catégorie</th><th>Vues</th><th>Likes</th><th>Action</th></tr></thead>
+        <thead><tr><th>Aperçu</th><th>Créateur</th><th>Catégorie</th><th>Vues</th><th>Action</th></tr></thead>
         <tbody id="table-videos-dash"><tr><td colspan="5" class="empty"><div class="spinner"></div></td></tr></tbody>
       </table>
     </div>
@@ -259,12 +259,19 @@
   <div id="tab-videos" style="display:none">
     <div class="section">
       <div class="section-header">
-        <span class="section-title">🎬 Toutes les vidéos</span>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <span class="section-title">🎬 Toutes les vidéos</span>
+          <select id="filter-provenance" onchange="loadVideos()" style="background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer;">
+            <option value="all">Toutes les provenances</option>
+            <option value="Local">📁 Stockage Local</option>
+            <option value="Cloudinary">☁️ Cloudinary</option>
+          </select>
+        </div>
         <span class="section-count" id="count-videos-full">—</span>
       </div>
       <table>
-        <thead><tr><th>Créateur</th><th>Caption</th><th>Catégorie</th><th>Vues</th><th>Likes</th><th>Action</th></tr></thead>
-        <tbody id="table-videos-full"><tr><td colspan="6" class="empty"><div class="spinner"></div></td></tr></tbody>
+        <thead><tr><th>Aperçu</th><th>Créateur</th><th>Provenance</th><th>Caption</th><th>Action</th></tr></thead>
+        <tbody id="table-videos-full"><tr><td colspan="5" class="empty"><div class="spinner"></div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -376,21 +383,24 @@
     try {
       const res = await fetch('/api/videos');
       const data = await res.json();
-      const videos = Array.isArray(data) ? data : [];
+      const allVideos = Array.isArray(data) ? data : [];
+      
+      const filter = document.getElementById('filter-provenance').value;
+      const videos = filter === 'all' ? allVideos : allVideos.filter(v => v.provenance === filter);
 
-      document.getElementById('stat-videos').textContent = videos.length;
-      document.getElementById('count-videos-dash').textContent = videos.length + ' vidéos';
-      document.getElementById('count-videos-full').textContent = videos.length + ' vidéos';
+      document.getElementById('stat-videos').textContent = allVideos.length;
+      document.getElementById('count-videos-dash').textContent = allVideos.length + ' vidéos';
+      document.getElementById('count-videos-full').textContent = videos.length + ' vidéos filtrées';
 
       let totalLikes = 0, totalComments = 0;
-      videos.forEach(v => { totalLikes += (v.likes||0); totalComments += (v.commentsCount||0); });
+      allVideos.forEach(v => { totalLikes += (v.likes||0); totalComments += (v.commentsCount||0); });
       document.getElementById('stat-likes').textContent = fmt(totalLikes);
       document.getElementById('stat-comments').textContent = fmt(totalComments);
 
-      const dashRows = videos.slice(0,5).map(v => videoRow(v)).join('');
+      const dashRows = allVideos.slice(0,5).map(v => videoRow(v)).join('');
       const fullRows = videos.map(v => videoRowFull(v)).join('');
 
-      document.getElementById('table-videos-dash').innerHTML = videos.length ? dashRows : emptyState('Aucune vidéo publiée');
+      document.getElementById('table-videos-dash').innerHTML = allVideos.length ? dashRows : emptyState('Aucune vidéo publiée');
       document.getElementById('table-videos-full').innerHTML = videos.length ? fullRows : emptyState('Aucune vidéo publiée');
     } catch(e) {
       const err = '<tr><td colspan="6" class="empty" style="color:#ef4444">❌ Impossible de charger les vidéos</td></tr>';
@@ -400,23 +410,25 @@
   }
 
   function videoRow(v) {
+    const preview = `<video src="${v.videoUrl}" style="width:60px;height:60px;border-radius:4px;object-fit:cover" muted onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"></video>`;
     return `<tr>
+      <td><a href="${v.videoUrl}" target="_blank">${preview}</a></td>
       <td>${v.user?.username || v.user_id || '—'}</td>
       <td><span class="tag">${v.category||'—'}</span></td>
       <td>${fmt(v.views)}</td>
-      <td>${fmt(v.likes)}</td>
       <td><button class="delete-btn" onclick="deleteVideo('${v.id}')">Supprimer</button></td>
     </tr>`;
   }
 
   function videoRowFull(v) {
+    const preview = `<video src="${v.videoUrl}" style="width:80px;height:80px;border-radius:4px;object-fit:cover" muted onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"></video>`;
     const cap = v.caption ? v.caption.slice(0,50)+'…' : '—';
+    const provIcon = v.provenance === 'Cloudinary' ? '☁️' : '📁';
     return `<tr>
+      <td><a href="${v.videoUrl}" target="_blank">${preview}</a></td>
       <td>${v.user?.username || v.user_id || '—'}</td>
-      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cap}</td>
-      <td><span class="tag">${v.category||'—'}</span></td>
-      <td>${fmt(v.views)}</td>
-      <td>${fmt(v.likes)}</td>
+      <td><span class="tag" style="background:rgba(255,255,255,0.05)">${provIcon} ${v.provenance}</span></td>
+      <td style="max-width:200px">${cap}<br/><small style="color:var(--muted);font-size:10px">${v.videoUrl}</small></td>
       <td><button class="delete-btn" onclick="deleteVideo('${v.id}')">Supprimer</button></td>
     </tr>`;
   }

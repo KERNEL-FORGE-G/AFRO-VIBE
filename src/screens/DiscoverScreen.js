@@ -15,6 +15,7 @@ import {
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
+import VideoPlayerView from '../components/VideoPlayerView';
 import apiService from '../services/apiService';
 
 const { width } = Dimensions.get('window');
@@ -73,24 +74,31 @@ export const DiscoverScreen = ({ navigation }) => {
   const renderVideoGridItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.gridItem}
-      onPress={() => navigation.navigate('SoundDetail', { soundName: item.audioName })}
+      onPress={() => navigation.navigate('MainTabs', { screen: 'Accueil', params: { initialVideoId: item.id } })}
     >
-      <Image 
-        source={{ uri: item.videoUrl || item.thumbnail }} // Using real URL if available
-        style={styles.gridThumbnail} 
-        resizeMode="cover"
-      />
-      
-      {/* Views overlay */}
-      <View style={styles.viewsOverlay}>
-        <SVGIcon name="music" size={10} color={COLORS.text} style={styles.viewsIcon} />
-        <Text style={styles.viewsText}>{item.views || '0'}</Text>
+      <View style={styles.thumbnailContainer}>
+        <VideoPlayerView 
+          videoUrl={item.videoUrl} 
+          paused={false} 
+          isMuted={true}
+          thumbnail={item.thumbnail}
+          onSingleTap={() => navigation.navigate('MainTabs', { screen: 'Accueil', params: { initialVideoId: item.id } })}
+        />
+        
+        {/* Views overlay */}
+        <View style={styles.viewsOverlay}>
+          <SVGIcon name="play" size={10} color={COLORS.text} style={styles.viewsIcon} />
+          <Text style={styles.viewsText}>{item.views || '0'}</Text>
+        </View>
       </View>
 
       {/* Info footer */}
       <View style={styles.gridItemFooter}>
         <Text style={styles.gridCaption} numberOfLines={2}>{item.caption}</Text>
         <View style={styles.creatorRow}>
+          <View style={styles.miniAvatar}>
+            <Text style={styles.avatarInitial}>{item.user?.username?.[0]?.toUpperCase() || 'U'}</Text>
+          </View>
           <Text style={styles.gridUsername} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
         </View>
       </View>
@@ -310,59 +318,74 @@ const styles = StyleSheet.create({
   gridItem: {
     width: GRID_ITEM_WIDTH,
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  gridThumbnail: {
+  thumbnailContainer: {
     width: '100%',
-    height: 160,
-    backgroundColor: COLORS.background,
+    height: 180,
+    backgroundColor: '#000',
+    position: 'relative',
   },
   viewsOverlay: {
     position: 'absolute',
-    top: 135,
-    left: SPACING.xs,
+    bottom: 8,
+    left: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   viewsIcon: {
     marginRight: 4,
   },
   viewsText: {
     color: COLORS.text,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   gridItemFooter: {
-    padding: SPACING.sm,
+    padding: 10,
   },
   gridCaption: {
     color: COLORS.text,
-    fontSize: 11,
-    lineHeight: 15,
-    marginBottom: SPACING.sm,
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 16,
+    marginBottom: 8,
   },
   creatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  gridAvatar: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  miniAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: COLORS.accent,
+  },
+  avatarInitial: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   gridUsername: {
     color: COLORS.textSecondary,
-    fontSize: 10,
-    marginLeft: 4,
+    fontSize: 11,
+    marginLeft: 6,
     flex: 1,
   },
 });

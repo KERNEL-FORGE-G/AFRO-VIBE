@@ -11,7 +11,7 @@ export const ENV = {
     measurementId: '',
   },
   useMockFirebase: false, // Set to false to use real Firebase
-  storageMode: 'online', // Force 'online' (Firebase)
+  storageMode: 'cloudinary', // Default to Cloudinary
 };
 
 export default ENV;

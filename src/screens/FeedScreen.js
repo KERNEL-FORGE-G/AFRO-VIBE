@@ -1,5 +1,5 @@
 // Home Feed Screen (Accueil)
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { 
   View, 
   Text, 
@@ -18,40 +18,158 @@ import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import VideoPlayerView from '../components/VideoPlayerView';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
-import { dbService } from '../services/apiService';
+import { dbService, configService } from '../services/apiService';
+import offlineService from '../services/offlineService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 const BOTTOM_BAR_HEIGHT = 60; // Approximate bottom tab bar height
 const FEED_HEIGHT = height - BOTTOM_BAR_HEIGHT;
+const VIDEO_CACHE_KEY = 'AFROVIBE_FEED_CACHE';
 
-export const FeedScreen = () => {
+// Spin animation for vinyl disk - Moved outside for stability
+const SpinVinyl = memo(({ isPlaying }) => {
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let animation;
+    if (isPlaying) {
+      animation = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 4000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      animation.start();
+    } else {
+      spinValue.setValue(0);
+    }
+    return () => {
+      if (animation) animation.stop();
+    };
+  }, [isPlaying, spinValue]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <Animated.View style={[styles.vinylOuter, { transform: [{ rotate: spin }] }]}>
+      <View style={styles.vinylInner}>
+        <Image 
+          source={require('../assets/images/logo.jpg')} 
+          style={styles.vinylCenter} 
+        />
+      </View>
+    </Animated.View>
+  );
+});
+
+export const FeedScreen = ({ route, navigation }) => {
+  // 1. ALL HOOKS AT THE TOP
   const [videos, setVideos] = useState([]);
-  const [activeTab, setActiveTab] = useState('pourToi'); // 'pourToi' or 'abonnements'
+  const [activeTab, setActiveTab] = useState('pourToi'); 
   const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [pausedVideos, setPausedVideos] = useState(new Set());
+  
   const isFocused = useIsFocused();
+  const flatListRef = useRef(null);
+  const isReadyToScroll = useRef(false);
+
+  const initialVideoId = route?.params?.initialVideoId;
+
+  // Viewability Config Hooks
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 80,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      const index = viewableItems[0].index;
+      setCurrentVisibleIndex(index);
+      setActiveVideoId(viewableItems[0].item.id);
+    }
+  }).current;
 
   const loadVideos = useCallback(async () => {
     try {
       const list = await dbService.getVideos();
-      setVideos(list);
-      if (list.length > 0 && !activeVideoId) {
-        setActiveVideoId(list[0].id);
+      if (list && list.length > 0) {
+        await AsyncStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify(list));
+        const offline = await offlineService.getOfflineVideos();
+        const merged = offlineService.mergeWithOffline(list, offline);
+        setVideos(merged);
+        
+        if (!initialVideoId && !activeVideoId) {
+          setActiveVideoId(merged[0].id);
+        }
+      } else {
+        throw new Error('No online videos');
       }
     } catch (err) {
-      console.error('Error loading videos:', err);
-    }
-  }, [activeVideoId]);
+      const cachedRaw = await AsyncStorage.getItem(VIDEO_CACHE_KEY);
+      const cachedList = cachedRaw ? JSON.parse(cachedRaw) : [];
+      const offline = await offlineService.getOfflineVideos();
+      const merged = offlineService.mergeWithOffline(cachedList, offline);
+      setVideos(merged);
 
-  // Reload videos when screen comes into focus
+      if (!initialVideoId && merged.length > 0 && !activeVideoId) {
+        setActiveVideoId(merged[0].id);
+      }
+    }
+  }, [activeVideoId, initialVideoId]);
+
   useFocusEffect(
     useCallback(() => {
       loadVideos();
     }, [loadVideos])
   );
+
+  // Optimized scroll to initial video
+  useEffect(() => {
+    if (initialVideoId && videos.length > 0 && isReadyToScroll.current) {
+      const index = videos.findIndex(v => v.id === initialVideoId);
+      if (index !== -1) {
+        setCurrentVisibleIndex(index);
+        setActiveVideoId(initialVideoId);
+        
+        const timer = setTimeout(() => {
+          if (flatListRef.current) {
+            try {
+              flatListRef.current.scrollToIndex({
+                index,
+                animated: false
+              });
+              navigation.setParams({ initialVideoId: null });
+            } catch (e) {
+              console.warn('Scroll failed:', e);
+            }
+          }
+        }, 100);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [initialVideoId, videos, navigation]);
+
+  const getItemLayout = useCallback((data, index) => ({
+    length: FEED_HEIGHT,
+    offset: FEED_HEIGHT * index,
+    index,
+  }), []);
+
+  const onScrollToIndexFailed = useCallback((info) => {
+    const wait = new Promise(resolve => setTimeout(resolve, 500));
+    wait.then(() => {
+      flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+    });
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -62,7 +180,6 @@ export const FeedScreen = () => {
   const handleLike = async (videoId) => {
     try {
       await dbService.likeVideo(videoId);
-      // Reload local visual state
       setVideos(prev => prev.map(v => {
         if (v.id === videoId) {
           const isLiked = !v.isLiked;
@@ -129,60 +246,6 @@ export const FeedScreen = () => {
     setCommentsVisible(true);
   };
 
-  // Track which item is currently visible
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 80,
-  }).current;
-
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      const index = viewableItems[0].index;
-      setCurrentVisibleIndex(index);
-      setActiveVideoId(viewableItems[0].item.id);
-    }
-  }).current;
-
-  // Spin animation for vinyl disk
-  const SpinVinyl = ({ isPlaying }) => {
-    const spinValue = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      let animation;
-      if (isPlaying) {
-        animation = Animated.loop(
-          Animated.timing(spinValue, {
-            toValue: 1,
-            duration: 4000,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          })
-        );
-        animation.start();
-      } else {
-        spinValue.setValue(0);
-      }
-      return () => {
-        if (animation) animation.stop();
-      };
-    }, [isPlaying, spinValue]);
-
-    const spin = spinValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg'],
-    });
-
-    return (
-      <Animated.View style={[styles.vinylOuter, { transform: [{ rotate: spin }] }]}>
-        <View style={styles.vinylInner}>
-          <Image 
-            source={require('../assets/images/logo.jpg')} 
-            style={styles.vinylCenter} 
-          />
-        </View>
-      </Animated.View>
-    );
-  };
-
   const renderVideoItem = ({ item, index }) => {
     const isPlaying = isFocused && index === currentVisibleIndex;
     const isManuallyPaused = pausedVideos.has(item.id);
@@ -223,7 +286,7 @@ export const FeedScreen = () => {
           {/* Creator Profile Bubble */}
           <View style={styles.avatarContainer}>
             <Image 
-              source={require('../assets/images/logo.jpg')}
+              source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
               style={styles.creatorAvatar} 
             />
             <TouchableOpacity style={styles.followBtn}>
@@ -296,6 +359,10 @@ export const FeedScreen = () => {
 
       {/* Vertical Video Feed */}
       <FlatList
+        ref={(ref) => {
+          flatListRef.current = ref;
+          if (ref) isReadyToScroll.current = true;
+        }}
         data={videos}
         renderItem={renderVideoItem}
         keyExtractor={item => item.id}
@@ -304,6 +371,8 @@ export const FeedScreen = () => {
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        getItemLayout={getItemLayout}
+        onScrollToIndexFailed={onScrollToIndexFailed}
         style={styles.feedList}
         windowSize={2}
         initialNumToRender={1}

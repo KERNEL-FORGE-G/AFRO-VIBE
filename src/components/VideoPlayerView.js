@@ -13,23 +13,7 @@ import Video from 'react-native-video';
 import YouTube from 'react-native-youtube-iframe';
 import { COLORS } from '../styles/theme';
 import SVGIcon from './SVGIcon';
-//..
-const SERVER_IP = '10.2.9.113';
-const BASE_URL = `http://${SERVER_IP}:3000`;
-
-const fixVideoUrl = (url) => {
-  if (!url) return url;
-
-  if (url.startsWith('/')) {
-    return `${BASE_URL}${url}`;
-  }
-  return url
-    .replace(/localhost/g, SERVER_IP)
-    .replace(/127\.0\.0\.1/g, SERVER_IP)
-    .replace(/192\.168\.56\.1/g, SERVER_IP);
-};
-
-
+import { configService } from '../services/apiService';
 
 export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, onSingleTap, onDoubleTap }) => {
   const [loading, setLoading] = useState(true);
@@ -38,8 +22,9 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
   const heartScale = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
 
-  // ... (fixVideoUrl, isYouTube, youtubeId functions) ...
-  const fixedUrl = useMemo(() => fixVideoUrl(videoUrl), [videoUrl]);
+  const fixedUrl = useMemo(() => configService.fixMediaUrl(videoUrl), [videoUrl]);
+  const fixedThumbnail = useMemo(() => configService.fixMediaUrl(thumbnail), [thumbnail]);
+  
   const isYouTube = useMemo(() => {
     return videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'));
   }, [videoUrl]);
@@ -140,6 +125,8 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
           <Video
             //source={{ uri: videoUrl }}
             source={{ uri: fixedUrl }}
+            poster={fixedThumbnail}
+            posterResizeMode="cover"
             style={styles.videoPlayer}
             resizeMode="cover"
             repeat={true}
@@ -151,9 +138,8 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
             onLoad={onLoad}
             onError={onError}
             ignoreSilentSwitch="obey"
-            
           />
-        )}
+        )}
 
         {/* Loading Indicator */}
         {loading && (

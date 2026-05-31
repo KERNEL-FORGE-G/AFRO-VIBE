@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const cloudinary = require('../cloudinaryConfig');
 
 // Configure multer for video uploads
 const storage = multer.diskStorage({
@@ -33,31 +34,41 @@ router.get('/', async (req, res) => {
       ORDER BY v.created_at DESC
     `);
 
-    const formattedVideos = videos.map(v => ({
-      id: v.id,
-      videoUrl: v.videoUrl,
-      caption: v.caption,
-      likes: v.likes || 0,
-      commentsCount: v.commentsCount || 0,
-      shares: v.shares || 0,
-      audioName: v.audioName || 'Son Original',
-      category: v.category || 'Danse',
-      views: v.views || 0,
-      thumbnail: v.thumbnail || 'logo.jpg',
-      isLiked: false, // Initialisation par défaut
-      user: {
-        uid: v.user_id || 'unknown',
-        username: v.username || 'Utilisateur inconnu',
-        fullName: v.fullName || 'Utilisateur inconnu',
-        avatar: v.avatar || 'logo.jpg',
-        isVerified: v.isVerified === 1
+    const formattedVideos = videos.map(v => {
+      // Si c'est une vidéo locale (stockée dans /uploads/), on met à jour l'IP dynamiquement
+      let finalVideoUrl = v.videoUrl;
+      const isCloudinary = v.videoUrl && (v.videoUrl.includes('cloudinary.com') || v.videoUrl.includes('res.cloudinary.com'));
+      
+      if (v.videoUrl && v.videoUrl.includes('/uploads/') && !isCloudinary) {
+        finalVideoUrl = v.videoUrl.replace(/http:\/\/[^\/]+/, `http://${req.headers.host}`);
       }
-    }));
 
-    console.log('DEBUG BACKEND: Videos formatées:', formattedVideos.length);
+      return {
+        id: v.id,
+        videoUrl: finalVideoUrl,
+        provenance: isCloudinary ? 'Cloudinary' : 'Local',
+        caption: v.caption,
+        likes: v.likes || 0,
+        commentsCount: v.commentsCount || 0,
+        shares: v.shares || 0,
+        audioName: v.audioName || 'Son Original',
+        category: v.category || 'Danse',
+        views: v.views || 0,
+        thumbnail: v.thumbnail || 'logo.jpg',
+        isLiked: false, 
+        user: {
+          uid: v.user_id || 'unknown',
+          username: v.username || 'Utilisateur inconnu',
+          fullName: v.fullName || 'Utilisateur inconnu',
+          avatar: v.avatar || 'logo.jpg',
+          isVerified: v.isVerified === 1
+        }
+      };
+    });
+
     res.json(formattedVideos);
   } catch (err) {
-    console.error('DEBUG BACKEND: Erreur SQL:', err);
+    console.error('SQL Error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -69,7 +80,6 @@ router.post('/:id/like', async (req, res) => {
   const db = req.db;
   
   try {
-    // Ensure user exists
     const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
     if (!user) {
       await db.run('INSERT OR IGNORE INTO users (id, username, email) VALUES (?, ?, ?)', [userId, 'User_'+userId.substring(5,10), userId+'@local.com']);
@@ -92,11 +102,10 @@ router.post('/:id/like', async (req, res) => {
   }
 });
 
-// Share a video (increment share count)
+// Share a video
 router.post('/:id/share', async (req, res) => {
   const videoId = req.params.id;
   const db = req.db;
-  
   try {
     await db.run('UPDATE videos SET shares = shares + 1 WHERE id = ?', [videoId]);
     res.json({ success: true });
@@ -106,7 +115,7 @@ router.post('/:id/share', async (req, res) => {
   }
 });
 
-// Get comments for a video
+// Get comments
 router.get('/:id/comments', async (req, res) => {
   const videoId = req.params.id;
   const db = req.db;
@@ -122,7 +131,7 @@ router.get('/:id/comments', async (req, res) => {
     const formatted = comments.map(c => ({
       id: c.id,
       text: c.text,
-      time: '1h', // simplified
+      time: '1h',
       user: {
         username: c.username,
         fullName: c.fullName,
@@ -145,7 +154,6 @@ router.post('/:id/comments', async (req, res) => {
   const db = req.db;
   
   try {
-    // Ensure user exists
     const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
     if (!user) {
       await db.run('INSERT OR IGNORE INTO users (id, username, email) VALUES (?, ?, ?)', [userId, 'User_'+userId.substring(5,10), userId+'@local.com']);
@@ -170,17 +178,57 @@ router.post('/', upload.single('video'), async (req, res) => {
   const category = req.body.category || 'Danse';
   const audioName = req.body.audioName || 'Son Original';
   const bodyVideoUrl = req.body.videoUrl;
+  const useCloudinary = req.body.useCloudinary === 'true' || process.env.FORCE_CLOUDINARY === 'true';
   
   try {
     if (!req.file && !bodyVideoUrl) {
-      console.log('Upload failed: Missing file or videoUrl', { body: req.body });
-      return res.status(400).json({ error: 'Aucun fichier vidéo ou URL fourni. (req.file and bodyVideoUrl are empty)' });
+      return res.status(400).json({ error: 'Aucun fichier vidéo ou URL fourni.' });
     }
     
-    const videoUrl = req.file ? `http://${req.headers.host}/uploads/${req.file.filename}` : bodyVideoUrl; 
-    const videoId = 'vid_' + Date.now();
+    let videoUrl = bodyVideoUrl;
+
+    if (req.file) {
+      if (useCloudinary) {
+        console.log('--- DEBUT UPLOAD CLOUDINARY (Large File) ---');
+        try {
+          // Utilisation d'une promesse pour attendre le résultat de upload_large
+          const result = await new Promise((resolve, reject) => {
+            cloudinary.uploader.upload_large(req.file.path, {
+              resource_type: 'video',
+              folder: 'afrovibe/videos',
+              chunk_size: 6000000,
+            }, (error, result) => {
+              if (error) {
+                console.error('Cloudinary Callback Error:', error);
+                reject(error);
+              } else {
+                resolve(result);
+              }
+            });
+          });
+          
+          console.log('✅ Cloudinary Success:', result.secure_url);
+          videoUrl = result.secure_url;
+        } catch (uploadError) {
+          console.error('❌ CLOUDINARY ERROR:', uploadError);
+          throw uploadError;
+        } finally {
+          if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+          }
+        }
+      } else {
+        // Mode local : On utilise l'IP actuelle du serveur pour que ça marche
+        videoUrl = `http://${req.headers.host}/uploads/${req.file.filename}`;
+      }
+    }
     
-    console.log('Creating video post:', { videoId, videoUrl, caption });
+    const videoId = 'vid_' + Date.now();
+    console.log('--- CREATION POST VIDEO ---');
+    console.log('ID:', videoId);
+    console.log('URL Finale:', videoUrl);
+    console.log('Source:', useCloudinary ? '☁️ Cloudinary' : '📁 Local');
+    console.log('---------------------------');
     
     await db.run(`INSERT INTO videos (id, user_id, videoUrl, caption, likes, commentsCount, shares, audioName, category, views, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [videoId, userId, videoUrl, caption, 0, 0, 0, audioName, category, 0, 'logo.jpg']
@@ -188,7 +236,7 @@ router.post('/', upload.single('video'), async (req, res) => {
     
     res.status(201).json({ success: true, videoId, videoUrl });
   } catch (err) {
-    console.error(err);
+    console.error('Video upload error:', err);
     res.status(500).json({ error: 'Erreur lors de la publication de la vidéo' });
   }
 });
