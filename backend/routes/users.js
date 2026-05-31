@@ -23,7 +23,82 @@ const uploadAvatar = multer({ storage: avatarStorage });
 
 const getUserId = (req) => req.headers['x-user-id'] || 'user_king';
 
-// ... (GET and other routes)
+// GET user profile
+router.get('/:id', async (req, res) => {
+  const db = req.db;
+  try {
+    const user = await db.get('SELECT id, username, email, fullName, avatar, followers, following, likes, bio, isVerified FROM users WHERE id = ?', [req.params.id]);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    
+    // Check if the requesting user is following this user
+    const currentUserId = getUserId(req);
+    const followRecord = await db.get('SELECT 1 FROM follows WHERE follower_id = ? AND following_id = ?', [currentUserId, req.params.id]);
+    user.isFollowing = !!followRecord;
+    
+    res.json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT update profile
+router.put('/:id', async (req, res) => {
+  const db = req.db;
+  const currentUserId = getUserId(req);
+  if (currentUserId !== req.params.id) return res.status(403).json({ error: 'Non autorisé' });
+
+  const { bio, fullName, username } = req.body;
+  try {
+    await db.run('UPDATE users SET bio = COALESCE(?, bio), fullName = COALESCE(?, fullName), username = COALESCE(?, username) WHERE id = ?', 
+      [bio, fullName, username, req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST follow user
+router.post('/:id/follow', async (req, res) => {
+  const db = req.db;
+  const followerId = getUserId(req);
+  const followingId = req.params.id;
+
+  if (followerId === followingId) return res.status(400).json({ error: 'Impossible de se suivre soi-même' });
+
+  try {
+    await db.run('INSERT OR IGNORE INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
+    
+    // Update stats
+    await db.run('UPDATE users SET following = following + 1 WHERE id = ?', [followerId]);
+    await db.run('UPDATE users SET followers = followers + 1 WHERE id = ?', [followingId]);
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST unfollow user
+router.post('/:id/unfollow', async (req, res) => {
+  const db = req.db;
+  const followerId = getUserId(req);
+  const followingId = req.params.id;
+
+  try {
+    const result = await db.run('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
+    if (result.changes > 0) {
+      await db.run('UPDATE users SET following = MAX(0, following - 1) WHERE id = ?', [followerId]);
+      await db.run('UPDATE users SET followers = MAX(0, followers - 1) WHERE id = ?', [followingId]);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // POST upload avatar
 router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {

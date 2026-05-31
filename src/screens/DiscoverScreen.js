@@ -95,12 +95,15 @@ export const DiscoverScreen = ({ navigation }) => {
       {/* Info footer */}
       <View style={styles.gridItemFooter}>
         <Text style={styles.gridCaption} numberOfLines={2}>{item.caption}</Text>
-        <View style={styles.creatorRow}>
+        <TouchableOpacity 
+          style={styles.creatorRow}
+          onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}
+        >
           <View style={styles.miniAvatar}>
             <Text style={styles.avatarInitial}>{item.user?.username?.[0]?.toUpperCase() || 'U'}</Text>
           </View>
           <Text style={styles.gridUsername} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );

@@ -15,11 +15,22 @@ import { COLORS } from '../styles/theme';
 import SVGIcon from './SVGIcon';
 import { configService } from '../services/apiService';
 
-export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, onSingleTap, onDoubleTap }) => {
+export const VideoPlayerView = ({ 
+  videoUrl, 
+  paused, 
+  isMuted = false, 
+  thumbnail, 
+  onSingleTap, 
+  onDoubleTap,
+  showStaticPlay = false 
+}) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [showHeartAnim, setShowHeartAnim] = useState(false);
+  const [showPauseAnim, setShowPauseAnim] = useState(false);
   const heartScale = useRef(new Animated.Value(0)).current;
+  const pauseScale = useRef(new Animated.Value(0)).current;
+  const pauseOpacity = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
 
   const fixedUrl = useMemo(() => configService.fixMediaUrl(videoUrl), [videoUrl]);
@@ -35,10 +46,34 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
     return (match && match[7].length === 11) ? match[7] : null;
   }, [videoUrl, isYouTube]);
 
+  const triggerPauseAnim = () => {
+    setShowPauseAnim(true);
+    pauseScale.setValue(0);
+    pauseOpacity.setValue(1);
+    
+    Animated.parallel([
+      Animated.spring(pauseScale, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pauseOpacity, {
+        toValue: 0,
+        duration: 600,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowPauseAnim(false);
+    });
+  };
+
   const handleTap = () => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300;
-    
+
+    console.log('[VideoPlayer] Tap detected, interval:', now - lastTap.current);
+
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
       // Trigger like animation
       setShowHeartAnim(true);
@@ -62,6 +97,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
       lastTap.current = now;
       setTimeout(() => {
         if (lastTap.current === now && onSingleTap) {
+          triggerPauseAnim();
           onSingleTap();
         }
       }, DOUBLE_PRESS_DELAY);
@@ -139,7 +175,7 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
             onError={onError}
             ignoreSilentSwitch="obey"
           />
-        )}
+        )}
 
         {/* Loading Indicator */}
         {loading && (
@@ -150,10 +186,35 @@ export const VideoPlayerView = ({ videoUrl, paused, isMuted = false, thumbnail, 
 
         {/* Floating Heart Animation on Double Tap */}
         {showHeartAnim && (
-          <View style={styles.heartAnimContainer}>
+          <View style={styles.feedbackContainer}>
             <Animated.View style={{ transform: [{ scale: heartScale }] }}>
               <SVGIcon name="heart" size={80} color={COLORS.secondary} />
             </Animated.View>
+          </View>
+        )}
+
+        {/* Play/Pause Feedback Animation on Single Tap */}
+        {showPauseAnim && (
+          <View style={styles.feedbackContainer}>
+            <Animated.View 
+              style={{ 
+                transform: [{ scale: pauseScale }],
+                opacity: pauseOpacity 
+              }}
+            >
+              <SVGIcon 
+                name={paused ? "play" : "pause"} 
+                size={70} 
+                color="rgba(255,255,255,0.8)" 
+              />
+            </Animated.View>
+          </View>
+        )}
+
+        {/* Static Play Icon when paused and not animating */}
+        {paused && !showPauseAnim && (
+          <View style={styles.feedbackContainer} pointerEvents="none">
+            <SVGIcon name="play" size={60} color="rgba(255,255,255,0.4)" />
           </View>
         )}
       </View>
@@ -210,8 +271,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-  heartAnimContainer: {
+  feedbackContainer: {
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

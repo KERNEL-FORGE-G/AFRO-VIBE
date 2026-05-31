@@ -25,25 +25,30 @@ import RNFS from 'react-native-fs';
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = width / 3 - 2;
 
-export const ProfileScreen = ({ navigation }) => {
+export const ProfileScreen = ({ navigation, route }) => {
+  const targetUserId = route?.params?.userId;
+  const currentUser = authService.getCurrentUser();
+  const isOwnProfile = !targetUserId || targetUserId === currentUser?.uid;
+
   const [profile, setProfile] = useState(null);
   const [myVideos, setMyVideos] = useState([]);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' | 'liked' | 'bookmarks'
   const [loading, setLoading] = useState(true);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [editBioValue, setEditBioValue] = useState('');
+  const [isFollowing, setIsFollowing] = useState(false);
 
   const loadProfileAndVideos = useCallback(async () => {
     setLoading(true);
     try {
-      const activeUser = authService.getCurrentUser();
-      if (!activeUser) {
+      const uidToShow = targetUserId || currentUser?.uid;
+      if (!uidToShow) {
         navigation.replace('Welcome');
         return;
       }
       
       // Load user details from server to get latest stats/avatar
-      const userDetails = await dbService.getUser(activeUser.uid);
+      const userDetails = await dbService.getUser(uidToShow);
       
       // Fix avatar URL
       if (userDetails && userDetails.avatar) {
@@ -51,7 +56,8 @@ export const ProfileScreen = ({ navigation }) => {
       }
 
       setProfile(userDetails || {
-        ...activeUser,
+        id: uidToShow,
+        username: 'Utilisateur',
         bio: 'Afro Vibe Creator',
         followers: 0,
         following: 0,
@@ -59,20 +65,20 @@ export const ProfileScreen = ({ navigation }) => {
         isVerified: false
       });
       setEditBioValue(userDetails?.bio || 'Afro Vibe Creator');
+      setIsFollowing(!!userDetails?.isFollowing);
 
       // Load all videos
       const allVideos = await dbService.getVideos();
       // Filter for this specific user
-      const filteredVideos = allVideos.filter(v => v.user.uid === activeUser.uid);
+      const filteredVideos = allVideos.filter(v => v.user.uid === uidToShow);
       setMyVideos(filteredVideos);
     } catch (err) {
       console.error('Profile load error:', err);
-      // Fallback to local user if server fails
-      const activeUser = authService.getCurrentUser();
-      if (activeUser) {
+      // Fallback to local user if server fails and it's own profile
+      if (isOwnProfile && currentUser) {
         setProfile({
-          ...activeUser,
-          avatar: configService.fixMediaUrl(activeUser.avatar),
+          ...currentUser,
+          avatar: configService.fixMediaUrl(currentUser.avatar),
           bio: 'Afro Vibe Creator',
           followers: 0,
           following: 0,
@@ -84,7 +90,7 @@ export const ProfileScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [navigation]);
+  }, [navigation, targetUserId, currentUser?.uid, isOwnProfile]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,7 +99,35 @@ export const ProfileScreen = ({ navigation }) => {
   );
 
   const handleEditProfile = () => {
+    if (!isOwnProfile) return;
     setIsEditingBio(true);
+  };
+
+  const handleFollowToggle = async () => {
+    if (isOwnProfile) return;
+    try {
+      if (isFollowing) {
+        await dbService.unfollowUser(profile.id);
+        setIsFollowing(false);
+        setProfile(p => ({ ...p, followers: Math.max(0, p.followers - 1) }));
+      } else {
+        await dbService.followUser(profile.id);
+        setIsFollowing(true);
+        setProfile(p => ({ ...p, followers: p.followers + 1 }));
+      }
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de mettre à jour l\'abonnement.');
+    }
+  };
+
+  const handleMessage = () => {
+    navigation.navigate('Chat', { 
+      otherUser: {
+        uid: profile.id,
+        username: profile.username,
+        avatar: profile.avatar
+      }
+    });
   };
 
   const handleSaveBio = async () => {
@@ -193,7 +227,13 @@ export const ProfileScreen = ({ navigation }) => {
 
       {/* Top Header Row */}
       <View style={styles.header}>
-        <View style={styles.flexEmpty} />
+        {!isOwnProfile ? (
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <SVGIcon name="close" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.flexEmpty} />
+        )}
         <Text style={styles.headerTitle}>{profile?.username || 'Profil'}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
           <SVGIcon name="settings" size={24} color={COLORS.text} />
@@ -210,14 +250,20 @@ export const ProfileScreen = ({ navigation }) => {
         ListHeaderComponent={
           <View style={styles.profileHeaderContainer}>
             {/* Avatar Circle */}
-            <TouchableOpacity style={styles.avatarOutline} onPress={handleAvatarPick}>
+            <TouchableOpacity 
+              style={styles.avatarOutline} 
+              onPress={isOwnProfile ? handleAvatarPick : null}
+              disabled={!isOwnProfile}
+            >
               <Image 
                 source={avatarSource}
                 style={styles.avatar} 
               />
-              <View style={styles.editAvatarIcon}>
-                <SVGIcon name="settings" size={12} color={COLORS.text} />
-              </View>
+              {isOwnProfile && (
+                <View style={styles.editAvatarIcon}>
+                  <SVGIcon name="settings" size={12} color={COLORS.text} />
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Username Row */}
@@ -246,18 +292,39 @@ export const ProfileScreen = ({ navigation }) => {
 
             {/* Buttons Row */}
             <View style={styles.actionButtonsRow}>
-              {isEditingBio ? (
-                <TouchableOpacity style={[styles.editProfileBtn, { backgroundColor: COLORS.primary }]} onPress={handleSaveBio}>
-                  <Text style={styles.editProfileText}>Sauvegarder</Text>
-                </TouchableOpacity>
+              {isOwnProfile ? (
+                <>
+                  {isEditingBio ? (
+                    <TouchableOpacity style={[styles.editProfileBtn, { backgroundColor: COLORS.primary }]} onPress={handleSaveBio}>
+                      <Text style={styles.editProfileText}>Sauvegarder</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
+                      <Text style={styles.editProfileText}>Éditer le profil</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={styles.bookmarkBtn} onPress={() => isEditingBio && setIsEditingBio(false)}>
+                    <SVGIcon name={isEditingBio ? "close" : "inbox"} size={18} color={COLORS.text} />
+                  </TouchableOpacity>
+                </>
               ) : (
-                <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
-                  <Text style={styles.editProfileText}>Éditer le profil</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity 
+                    style={[
+                      styles.editProfileBtn, 
+                      { backgroundColor: isFollowing ? COLORS.cardBackground : COLORS.primary }
+                    ]} 
+                    onPress={handleFollowToggle}
+                  >
+                    <Text style={styles.editProfileText}>
+                      {isFollowing ? 'Se désabonner' : 'S\'abonner'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.editProfileBtn} onPress={handleMessage}>
+                    <Text style={styles.editProfileText}>Message</Text>
+                  </TouchableOpacity>
+                </>
               )}
-              <TouchableOpacity style={styles.bookmarkBtn} onPress={() => isEditingBio && setIsEditingBio(false)}>
-                <SVGIcon name={isEditingBio ? "close" : "inbox"} size={18} color={COLORS.text} />
-              </TouchableOpacity>
             </View>
 
             {/* Biography */}

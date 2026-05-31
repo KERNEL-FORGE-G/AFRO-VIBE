@@ -11,14 +11,16 @@ import {
   Animated, 
   Easing,
   StatusBar,
-  RefreshControl
+  RefreshControl,
+  Share,
+  Alert
 } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import VideoPlayerView from '../components/VideoPlayerView';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
-import { dbService, configService } from '../services/apiService';
+import { dbService, configService, authService } from '../services/apiService';
 import offlineService from '../services/offlineService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -204,28 +206,37 @@ export const FeedScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleShare = async (videoId) => {
+  const handleShare = async (video) => {
     try {
-      await dbService.shareVideo(videoId);
-      setVideos(prev => prev.map(v => {
-        if (v.id === videoId) {
-          const currentSharesStr = v.shares.toString();
-          let numericShares = parseFloat(currentSharesStr);
-          if (currentSharesStr.includes('K')) {
-            numericShares = numericShares * 1000;
+      const result = await Share.share({
+        message: `Regarde cette vidéo sur Afro Vibe !`,
+        url: video.videoUrl, // Native share dialogs handle URL copying well
+        title: 'Partager la vidéo',
+      });
+
+      if (result.action === Share.sharedAction) {
+        await dbService.shareVideo(video.id);
+        setVideos(prev => prev.map(v => {
+          if (v.id === video.id) {
+            const currentSharesStr = v.shares.toString();
+            let numericShares = parseFloat(currentSharesStr);
+            if (currentSharesStr.includes('K')) {
+              numericShares = numericShares * 1000;
+            }
+            const newShares = numericShares + 1;
+            const newSharesStr = newShares >= 1000 ? (newShares / 1000).toFixed(1) + 'K' : newShares.toString();
+            
+            return {
+              ...v,
+              shares: newSharesStr,
+            };
           }
-          const newShares = numericShares + 1;
-          const newSharesStr = newShares >= 1000 ? (newShares / 1000).toFixed(1) + 'K' : newShares.toString();
-          
-          return {
-            ...v,
-            shares: newSharesStr,
-          };
-        }
-        return v;
-      }));
+          return v;
+        }));
+      }
     } catch (err) {
       console.error('Share error:', err);
+      Alert.alert('Erreur', 'Impossible de partager la vidéo.');
     }
   };
 
@@ -246,6 +257,24 @@ export const FeedScreen = ({ route, navigation }) => {
     setCommentsVisible(true);
   };
 
+  const handleFollowCreator = async (creatorId) => {
+    try {
+      await dbService.followUser(creatorId);
+      // Remove the + button visually for this creator in the feed
+      setVideos(prev => prev.map(v => {
+        if (v.user.uid === creatorId) {
+          return {
+            ...v,
+            user: { ...v.user, isFollowing: true }
+          };
+        }
+        return v;
+      }));
+    } catch (err) {
+      console.error('Follow error:', err);
+    }
+  };
+
   const renderVideoItem = ({ item, index }) => {
     const isPlaying = isFocused && index === currentVisibleIndex;
     const isManuallyPaused = pausedVideos.has(item.id);
@@ -259,17 +288,14 @@ export const FeedScreen = ({ route, navigation }) => {
           thumbnail={item.thumbnail}
           onSingleTap={() => togglePause(item.id)}
           onDoubleTap={() => handleLike(item.id)}
+          showStaticPlay={isManuallyPaused}
         />
-        
-        {isManuallyPaused && (
-          <View style={styles.pauseOverlay}>
-            <SVGIcon name="play" size={60} color="rgba(255,255,255,0.6)" />
-          </View>
-        )}
 
         {/* Bottom Overlay Info */}
         <View style={styles.bottomInfoContainer}>
-          <Text style={styles.username}>@{item.user.username}</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
+            <Text style={styles.username}>@{item.user.username}</Text>
+          </TouchableOpacity>
           {item.user.isVerified && (
             <SVGIcon name="verified" size={14} style={styles.verifiedIcon} />
           )}
@@ -285,13 +311,20 @@ export const FeedScreen = ({ route, navigation }) => {
         <View style={styles.rightButtonsPanel}>
           {/* Creator Profile Bubble */}
           <View style={styles.avatarContainer}>
-            <Image 
-              source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
-              style={styles.creatorAvatar} 
-            />
-            <TouchableOpacity style={styles.followBtn}>
-              <Text style={styles.followBtnText}>+</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
+              <Image 
+                source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
+                style={styles.creatorAvatar} 
+              />
             </TouchableOpacity>
+            {!item.user.isFollowing && item.user.uid !== authService.getCurrentUser()?.uid && (
+              <TouchableOpacity 
+                style={styles.followBtn}
+                onPress={() => handleFollowCreator(item.user.uid)}
+              >
+                <Text style={styles.followBtnText}>+</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Like Button */}
@@ -319,7 +352,7 @@ export const FeedScreen = ({ route, navigation }) => {
           {/* Share Button */}
           <TouchableOpacity 
             style={styles.actionButton}
-            onPress={() => handleShare(item.id)}
+            onPress={() => handleShare(item)}
           >
             <SVGIcon name="share" size={32} color={COLORS.text} />
             <Text style={styles.actionText}>{item.shares}</Text>
@@ -366,6 +399,7 @@ export const FeedScreen = ({ route, navigation }) => {
         data={videos}
         renderItem={renderVideoItem}
         keyExtractor={item => item.id}
+        extraData={[currentVisibleIndex, pausedVideos, commentsVisible, isFocused]}
         pagingEnabled={true}
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"

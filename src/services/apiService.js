@@ -553,6 +553,24 @@ export const dbService = {
     if (!res.ok) throw new Error('Erreur envoi message');
     return await getResponseJson(res);
   },
+
+  followUser: async (userId) => {
+    const res = await fetch(`${API_URL}/users/${userId}/follow`, {
+      method: 'POST',
+      headers: { 'x-user-id': currentUser?.uid }
+    });
+    if (!res.ok) throw new Error('Erreur lors de l\'abonnement');
+    return await getResponseJson(res);
+  },
+
+  unfollowUser: async (userId) => {
+    const res = await fetch(`${API_URL}/users/${userId}/unfollow`, {
+      method: 'POST',
+      headers: { 'x-user-id': currentUser?.uid }
+    });
+    if (!res.ok) throw new Error('Erreur lors du désabonnement');
+    return await getResponseJson(res);
+  },
 };
 
 export default {

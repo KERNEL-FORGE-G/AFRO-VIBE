@@ -70,6 +70,15 @@ async function setupDatabase() {
       FOREIGN KEY (sender_id) REFERENCES users (id),
       FOREIGN KEY (receiver_id) REFERENCES users (id)
     );
+
+    CREATE TABLE IF NOT EXISTS follows (
+      follower_id TEXT,
+      following_id TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (follower_id, following_id),
+      FOREIGN KEY (follower_id) REFERENCES users (id),
+      FOREIGN KEY (following_id) REFERENCES users (id)
+    );
   `);
 
   // No seed data — the database starts clean.
