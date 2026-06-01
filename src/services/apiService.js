@@ -72,14 +72,12 @@ export const authService = {
   },
 
   signInWithGoogle: async () => {
-    // We must authorize against Supabase, not Vercel
-    const authUrl = `${ENV.supabaseConfig.url}/auth/v1/authorize?provider=google&redirect_to=afrovibe://`;
+    const authUrl = `${API_URL}/auth/social/google`;
     await InAppBrowser.openAuth(authUrl, 'afrovibe://');
   },
 
   signInWithGitHub: async () => {
-    // We must authorize against Supabase, not Vercel
-    const authUrl = `${ENV.supabaseConfig.url}/auth/v1/authorize?provider=github&redirect_to=afrovibe://`;
+    const authUrl = `${API_URL}/auth/social/github`;
     await InAppBrowser.openAuth(authUrl, 'afrovibe://');
   },
 
