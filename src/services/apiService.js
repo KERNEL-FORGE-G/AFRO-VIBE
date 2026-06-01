@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { ENV } from '../config/env';
 
-let API_URL = ENV.onlineApiUrl || 'http://10.2.9.113:3000/api'; 
-let STORAGE_MODE = 'offline'; 
+let API_URL = ENV.onlineApiUrl || 'http://10.2.9.113:3000/api';
+let STORAGE_MODE = 'offline';
 let currentUser = null;
 const authListeners = new Set();
-let currentToken = null;
 
 const getResponseJson = async (response) => {
   const text = await response.text();
@@ -14,26 +14,24 @@ const getResponseJson = async (response) => {
   try { return JSON.parse(text); } catch (error) { return {}; }
 };
 
-const fetchWithToken = async (url, options = {}) => {
-  const token = await AsyncStorage.getItem('USER_TOKEN');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
-    ...options.headers
-  };
-  return fetch(url, { ...options, headers });
-};
-
 const triggerAuthListeners = (user) => {
   currentUser = user;
   authListeners.forEach(listener => listener(user));
 };
 
-const fetchWithTimeout = (url, options, timeout = 15000) => {
-  return Promise.race([
-    fetch(url, options),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
-  ]);
+const saveSession = async (user, token) => {
+  if (token) {
+    await AsyncStorage.setItem('USER_TOKEN', token);
+  } else {
+    await AsyncStorage.removeItem('USER_TOKEN');
+  }
+  
+  if (user) {
+    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(user));
+  } else {
+    await AsyncStorage.removeItem('CURRENT_USER');
+  }
+  triggerAuthListeners(user);
 };
 
 export const configService = {
@@ -56,15 +54,6 @@ export const configService = {
         triggerAuthListeners(currentUser);
       }
     } catch (e) {}
-  },
-  testConnection: async (url) => {
-    try {
-      const response = await fetchWithTimeout(`${url}/health`, {}, 8000);
-      const data = await getResponseJson(response);
-      return data.status === 'ok';
-    } catch (err) {
-      return false;
-    }
   }
 };
 
@@ -77,21 +66,19 @@ export const authService = {
     });
     const data = await getResponseJson(res);
     if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
-    currentToken = data.token;
-    await AsyncStorage.setItem('USER_TOKEN', currentToken);
-    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(data.user));
-    triggerAuthListeners(data.user);
+    
+    await saveSession(data.user, data.token || data.session?.access_token);
     return { user: data.user };
   },
 
   signInWithGoogle: async () => {
-    // Note: This needs to be implemented to trigger the OAuth flow
-    throw new Error('signInWithGoogle non implémenté');
+    const authUrl = `${ENV.onlineApiUrl.replace('/api', '')}/auth/v1/authorize?provider=google`;
+    await InAppBrowser.openAuth(authUrl, 'afrovibe://');
   },
 
   signInWithGitHub: async () => {
-    // Note: This needs to be implemented to trigger the OAuth flow
-    throw new Error('signInWithGitHub non implémenté');
+    const authUrl = `${ENV.onlineApiUrl.replace('/api', '')}/auth/v1/authorize?provider=github`;
+    await InAppBrowser.openAuth(authUrl, 'afrovibe://');
   },
 
   createUserWithEmailAndPassword: async (email, password, username = 'new_user') => {
@@ -102,23 +89,13 @@ export const authService = {
     });
     const data = await getResponseJson(res);
     if (!res.ok) throw new Error(data.error || "Erreur lors de l'inscription");
-    currentToken = data.token;
-    await AsyncStorage.setItem('USER_TOKEN', currentToken);
-    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(data.user));
-    triggerAuthListeners(data.user);
+    
+    await saveSession(data.user, data.token);
     return { user: data.user };
   },
 
-  // Note: Social auth should be handled via browser/webview calling Supabase directly
-  // then sending the token to the backend for verification if needed.
-  // For simplicity, we keep the direct Supabase call for now if still needed,
-  // but it's better to move it to backend.
   signOut: async () => {
-    currentToken = null;
-    currentUser = null;
-    await AsyncStorage.removeItem('USER_TOKEN');
-    await AsyncStorage.removeItem('CURRENT_USER');
-    triggerAuthListeners(null);
+    await saveSession(null, null);
     return true;
   },
   onAuthStateChanged: (callback) => {
@@ -135,7 +112,11 @@ export const dbService = {
     return await getResponseJson(res);
   },
   likeVideo: async (videoId) => {
-    const res = await fetchWithToken(`${API_URL}/videos/${videoId}/like`, { method: 'POST' });
+    const token = await AsyncStorage.getItem('USER_TOKEN');
+    const res = await fetch(`${API_URL}/videos/${videoId}/like`, { 
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     return await getResponseJson(res);
   },
   uploadVideo: async (videoUri, caption, category) => {
