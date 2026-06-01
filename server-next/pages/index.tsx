@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-LayoutDashboard, 
-Users, 
-Video, 
-BarChart3, 
-Settings, 
-TrendingUp,
-Play,
-MoreVertical,
-ArrowUpRight,
-Zap,
-Loader2
+import { 
+  LayoutDashboard, 
+  Users, 
+  Video, 
+  BarChart3, 
+  Settings, 
+  TrendingUp,
+  Play,
+  MoreVertical,
+  ArrowUpRight,
+  Zap,
+  Loader2
 } from 'lucide-react';
-
 import { supabase } from '../lib/supabase';
 
 export default function AfroVibeCommandCenter() {
