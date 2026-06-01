@@ -1,38 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { 
-  getFirestore, 
-  collection, 
-  onSnapshot, 
-  doc, 
-  deleteDoc 
-} from '@react-native-firebase/firestore';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 
 export const AdminDashboardScreen = ({ navigation }) => {
   const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const db = getFirestore();
-    const videosCollection = collection(db, 'videos');
-    
-    const unsubscribe = onSnapshot(videosCollection, snapshot => {
-      if (snapshot) {
-        const videoList = snapshot.docs.map(d => ({
-          id: d.id,
-          ...d.data(),
-        }));
-        setVideos(videoList);
-      }
-      setLoading(false);
-    }, error => {
-      console.error('Admin Dashboard Firestore Error:', error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // Note: Firestore integration was removed. Replace this with API calls if needed.
+    setVideos([]);
+    setLoading(false);
   }, []);
 
   const handleDelete = async (id) => {
@@ -41,13 +19,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
       { 
         text: 'Supprimer', 
         onPress: async () => {
-          try {
-            const db = getFirestore();
-            await deleteDoc(doc(db, 'videos', id));
-          } catch (error) {
-            console.error('Delete error:', error);
-            Alert.alert('Erreur', 'Impossible de supprimer la vidéo.');
-          }
+          Alert.alert('Info', 'Fonctionnalité désactivée après migration de Firebase.');
         } 
       }
     ]);
@@ -57,7 +29,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Tableau de bord (Firebase)</Text>
+      <Text style={styles.header}>Tableau de bord</Text>
       <FlatList
         data={videos}
         keyExtractor={item => item.id}
@@ -69,6 +41,7 @@ export const AdminDashboardScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         )}
+        ListEmptyComponent={<Text style={styles.text}>Aucune vidéo trouvée.</Text>}
       />
     </View>
   );

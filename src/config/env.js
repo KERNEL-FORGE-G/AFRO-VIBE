@@ -1,15 +1,6 @@
 // Environment Configuration for Afro Vibe
 
 export const ENV = {
-  firebaseConfig: {
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: '',
-    measurementId: '',
-  },
   supabaseConfig: {
     url: 'https://reapauoxqaqdtxtrxczx.supabase.co',
     anonKey: 'sb_publishable_FqzxsSvp3lD1HtWi7X2zbA_AXzno_9H',
@@ -21,7 +12,6 @@ export const ENV = {
     clientId: 'Ov23li9WzX48paaewQ5Y',
   },
   onlineApiUrl: 'https://afro-vibe-backend.vercel.app/api',
-  useMockFirebase: false, // Set to false to use real Firebase
   storageMode: 'cloudinary', // Default to Cloudinary
 };
 

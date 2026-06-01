@@ -10,8 +10,6 @@ import notifee, { EventType } from '@notifee/react-native';
 // Ignore specific deprecation warnings that clutter the console
 LogBox.ignoreLogs([
   'InteractionManager has been deprecated',
-  'React Native Firebase namespaced API',
-  'getApp() instead'
 ]);
 
 notifee.onBackgroundEvent(async ({ type, detail }) => {
