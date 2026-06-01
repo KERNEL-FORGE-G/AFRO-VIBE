@@ -1,4 +1,9 @@
 {
   "version": 2,
-  "rootDirectory": "server-next"
+  "builds": [
+    {
+      "src": "server-next/package.json",
+      "use": "@vercel/next"
+    }
+  ]
 }
