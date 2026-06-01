@@ -120,6 +120,39 @@ export const RegisterScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OU</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.socialButtons}>
+            <TouchableOpacity 
+              style={[styles.socialBtn, { backgroundColor: '#fff' }]} 
+              onPress={async () => {
+                try {
+                  await authService.signInWithGoogle();
+                  navigation.replace('MainTabs');
+                } catch (e) { setError(e.message); }
+              }}
+            >
+              <SVGIcon name="google" size={24} color="#000" />
+              <Text style={[styles.socialBtnText, { color: '#000' }]}>Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.socialBtn, { backgroundColor: '#333' }]}
+              onPress={async () => {
+                try {
+                  await authService.signInWithGitHub();
+                } catch (e) { setError(e.message); }
+              }}
+            >
+              <SVGIcon name="github" size={24} color="#fff" />
+              <Text style={[styles.socialBtnText, { color: '#fff' }]}>GitHub</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Login Redirect */}
           <View style={styles.redirectContainer}>
             <Text style={styles.redirectText}>Vous avez déjà un compte ? </Text>

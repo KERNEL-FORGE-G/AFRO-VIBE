@@ -197,6 +197,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  dividerText: {
+    color: COLORS.textSecondary,
+    marginHorizontal: SPACING.md,
+    fontSize: 12,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  socialBtn: {
+    flex: 0.48,
+    height: 50,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  socialBtnText: {
+    marginLeft: SPACING.sm,
+    fontWeight: 'bold',
+  },
+  redirectContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: SPACING.xl,
+  },
+  redirectText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  redirectLink: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  settingsBtn: {
+    padding: 5,
+  },
+});
+
+export default LoginScreen;
+borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  loginBtnText: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   redirectContainer: {
     flexDirection: 'row',
     justifyContent: 'center',

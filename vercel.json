@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "supabase/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "supabase/server.js"
+    },
+    {
+      "src": "/health",
+      "dest": "supabase/server.js"
+    }
+  ]
+}

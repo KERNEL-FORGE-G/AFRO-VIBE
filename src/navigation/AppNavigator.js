@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
 import { COLORS } from '../styles/theme';
 import { authService } from '../services/apiService';
+import { setUser as setReduxUser } from '../redux/slices/authSlice';
 
 // Import Screens & Sub-Navigators
 import WelcomeScreen from '../screens/WelcomeScreen';

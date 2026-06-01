@@ -47,9 +47,9 @@ export const SettingsScreen = ({ navigation }) => {
     try {
       await configService.setStorageMode(mode);
       let modeLabel = '';
-      if (mode === 'online') modeLabel = 'En ligne (Firebase)';
-      else if (mode === 'cloudinary') modeLabel = 'Cloudinary (via Backend)';
-      else modeLabel = 'Hors-ligne (Local Node.js)';
+      if (mode === 'online') modeLabel = 'En ligne (Supabase)';
+      else if (mode === 'cloudinary') modeLabel = 'Cloudinary (Cloud)';
+      else modeLabel = 'Hors-ligne (Local SQLite)';
       
       Alert.alert('Mode de stockage', `L'application utilise désormais le mode ${modeLabel}.`);
     } catch (e) {

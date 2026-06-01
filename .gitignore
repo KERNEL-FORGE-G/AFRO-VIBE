@@ -73,3 +73,10 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+# Custom
+.env
+*.sqlite
+backend/uploads/*
+!backend/uploads/.gitkeep
+supabase/.env
+
