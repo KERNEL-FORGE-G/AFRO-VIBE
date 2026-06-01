@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Afro Vibe — Admin Dashboard</title>
+  <title>Afro Vibe — Admin Dashboard (Local)</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
@@ -15,6 +15,7 @@
       --accent: #f59e0b;
       --red: #ef4444;
       --green: #10b981;
+      --blue: #3b82f6;
       --text: #f1f5f9;
       --muted: #64748b;
       --radius: 12px;
@@ -65,24 +66,26 @@
       padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
       background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3);
     }
+    .sync-btn {
+      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      background: var(--blue); color: white; border: none; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .refresh-btn {
       padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
       background: var(--primary); color: white; border: none; cursor: pointer;
-      transition: opacity 0.2s;
     }
-    .refresh-btn:hover { opacity: 0.85; }
 
     /* ── Stats Grid ── */
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
     .stat-card {
       background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 20px; transition: transform 0.2s;
+      padding: 20px;
     }
-    .stat-card:hover { transform: translateY(-2px); }
     .stat-icon { font-size: 22px; margin-bottom: 12px; }
     .stat-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
     .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; }
-    .stat-change { font-size: 11px; margin-top: 8px; color: var(--green); }
 
     /* ── Tables ── */
     .section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
@@ -91,221 +94,69 @@
       padding: 16px 20px; border-bottom: 1px solid var(--border);
     }
     .section-title { font-size: 14px; font-weight: 700; }
-    .section-count { font-size: 12px; color: var(--muted); }
     table { width: 100%; border-collapse: collapse; }
-    th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 20px; text-align: left; background: var(--card2); }
-    td { font-size: 13px; padding: 12px 20px; border-top: 1px solid var(--border); vertical-align: middle; }
-    tr:hover td { background: rgba(255,255,255,0.02); }
-    .avatar {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; color: white; margin-right: 10px;
-    }
+    th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; padding: 10px 20px; text-align: left; background: var(--card2); }
+    td { font-size: 13px; padding: 12px 20px; border-top: 1px solid var(--border); }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 10px; }
     .user-cell { display: flex; align-items: center; }
-    .verified { display: inline-block; color: #38bdf8; font-size: 12px; margin-left: 4px; }
-    .tag {
-      display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
-      background: rgba(139,92,246,0.15); color: var(--primary); border: 1px solid rgba(139,92,246,0.2);
-    }
-    .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
-    .empty-icon { font-size: 32px; margin-bottom: 8px; }
-    .delete-btn {
-      padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
-      background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.2);
-      cursor: pointer; transition: all 0.2s;
-    }
-    .delete-btn:hover { background: rgba(239,68,68,0.25); }
+    .delete-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; color: var(--red); background: rgba(239,68,68,0.1); border: 1px solid var(--red); cursor: pointer; }
 
-    /* ── Server info ── */
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    /* ── Info ── */
     .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .info-row:last-child { border-bottom: none; }
     .info-key { color: var(--muted); }
-    .info-val { font-weight: 600; }
-    .copy-btn {
-      font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer;
-      background: rgba(245,158,11,0.15); color: var(--accent); border: 1px solid rgba(245,158,11,0.2);
-      margin-left: 8px;
-    }
+    .copy-btn { font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; background: rgba(245,158,11,0.1); color: var(--accent); border: 1px solid var(--accent); }
 
-    /* ── Toast ── */
-    .toast {
-      position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
-      background: var(--green); color: white; border-radius: 8px; font-size: 13px; font-weight: 600;
-      display: none; z-index: 1000; animation: slideUp 0.3s ease;
-    }
-    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-    /* ── Loading ── */
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 1000; color: white; }
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 900px) {
-      .sidebar { width: 60px; padding: 16px 8px; }
-      .logo-text, .logo-sub, .nav-label { display: none; }
-      .main { margin-left: 60px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .info-grid { grid-template-columns: 1fr; }
-    }
   </style>
 </head>
 <body>
 
-<!-- Sidebar -->
 <aside class="sidebar">
   <div class="logo">
     <div class="logo-icon">🎵</div>
-    <div>
-      <div class="logo-text">AFRO VIBE</div>
-      <div class="logo-sub">Admin Panel</div>
-    </div>
+    <div><div class="logo-text">AFRO VIBE</div><div class="logo-sub">Admin Panel (Local)</div></div>
   </div>
-  <a class="nav-item active" onclick="showTab('dashboard')">
-    <span class="nav-icon">📊</span>
-    <span class="nav-label">Dashboard</span>
-    <span class="status-dot"></span>
-  </a>
-  <a class="nav-item" onclick="showTab('users')">
-    <span class="nav-icon">👥</span>
-    <span class="nav-label">Utilisateurs</span>
-  </a>
-  <a class="nav-item" onclick="showTab('videos')">
-    <span class="nav-icon">🎬</span>
-    <span class="nav-label">Vidéos</span>
-  </a>
-  <a class="nav-item" onclick="showTab('server')">
-    <span class="nav-icon">⚙️</span>
-    <span class="nav-label">Serveur</span>
-  </a>
+  <a class="nav-item active" onclick="showTab('dashboard')"><span class="nav-icon">📊</span>Dashboard</a>
+  <a class="nav-item" onclick="showTab('users')"><span class="nav-icon">👥</span>Utilisateurs</a>
+  <a class="nav-item" onclick="showTab('videos')"><span class="nav-icon">🎬</span>Vidéos</a>
+  <a class="nav-item" onclick="showTab('server')"><span class="nav-icon">⚙️</span>Serveur</a>
 </aside>
 
-<!-- Main Content -->
 <main class="main">
   <div class="topbar">
     <h1 id="page-title">Dashboard</h1>
     <div class="topbar-right">
-      <span class="badge" id="server-status">🟢 Serveur actif</span>
+      <button class="sync-btn" id="sync-btn" onclick="syncCloud()">☁️ Synchroniser avec le Cloud</button>
       <button class="refresh-btn" onclick="loadAll()">⟳ Actualiser</button>
     </div>
   </div>
 
-  <!-- Dashboard Tab -->
   <div id="tab-dashboard">
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div class="stat-value" id="stat-users">—</div>
-        <div class="stat-label">Utilisateurs inscrits</div>
-        <div class="stat-change" id="stat-users-change"></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🎬</div>
-        <div class="stat-value" id="stat-videos">—</div>
-        <div class="stat-label">Vidéos publiées</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">💬</div>
-        <div class="stat-value" id="stat-comments">—</div>
-        <div class="stat-label">Commentaires</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">❤️</div>
-        <div class="stat-value" id="stat-likes">—</div>
-        <div class="stat-label">Total likes</div>
-      </div>
+      <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="stat-users">—</div><div class="stat-label">Utilisateurs (Local)</div></div>
+      <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value" id="stat-videos">—</div><div class="stat-label">Vidéos (Local)</div></div>
     </div>
-
-    <!-- Recent Users -->
     <div class="section">
-      <div class="section-header">
-        <span class="section-title">👥 Utilisateurs récents</span>
-        <span class="section-count" id="count-users-dash">—</span>
-      </div>
-      <table>
-        <thead><tr><th>Utilisateur</th><th>Email</th><th>Abonnés</th><th>Likes</th><th>Vérifié</th></tr></thead>
-        <tbody id="table-users-dash"><tr><td colspan="5" class="empty"><div class="spinner"></div></td></tr></tbody>
-      </table>
-    </div>
-
-    <!-- Recent Videos -->
-    <div class="section">
-      <div class="section-header">
-        <span class="section-title">🎬 Vidéos récentes</span>
-        <span class="section-count" id="count-videos-dash">—</span>
-      </div>
-      <table>
-        <thead><tr><th>Aperçu</th><th>Créateur</th><th>Catégorie</th><th>Vues</th><th>Action</th></tr></thead>
-        <tbody id="table-videos-dash"><tr><td colspan="5" class="empty"><div class="spinner"></div></td></tr></tbody>
-      </table>
+      <div class="section-header"><span class="section-title">👥 Utilisateurs récents</span></div>
+      <table><tbody id="table-users-dash"></tbody></table>
     </div>
   </div>
 
-  <!-- Users Tab -->
   <div id="tab-users" style="display:none">
-    <div class="section">
-      <div class="section-header">
-        <span class="section-title">👥 Tous les utilisateurs</span>
-        <span class="section-count" id="count-users-full">—</span>
-      </div>
-      <table>
-        <thead><tr><th>Utilisateur</th><th>Email</th><th>Abonnés</th><th>Likes</th><th>Vérifié</th><th>Action</th></tr></thead>
-        <tbody id="table-users-full"><tr><td colspan="6" class="empty"><div class="spinner"></div></td></tr></tbody>
-      </table>
-    </div>
+    <div class="section"><table><thead><tr><th>Utilisateur</th><th>Email</th><th>Action</th></tr></thead><tbody id="table-users-full"></tbody></table></div>
   </div>
 
-  <!-- Videos Tab -->
   <div id="tab-videos" style="display:none">
-    <div class="section">
-      <div class="section-header">
-        <div style="display:flex; align-items:center; gap:16px;">
-          <span class="section-title">🎬 Toutes les vidéos</span>
-          <select id="filter-provenance" onchange="loadVideos()" style="background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer;">
-            <option value="all">Toutes les provenances</option>
-            <option value="Local">📁 Stockage Local</option>
-            <option value="Cloudinary">☁️ Cloudinary</option>
-          </select>
-        </div>
-        <span class="section-count" id="count-videos-full">—</span>
-      </div>
-      <table>
-        <thead><tr><th>Aperçu</th><th>Créateur</th><th>Provenance</th><th>Caption</th><th>Action</th></tr></thead>
-        <tbody id="table-videos-full"><tr><td colspan="5" class="empty"><div class="spinner"></div></td></tr></tbody>
-      </table>
-    </div>
+    <div class="section"><table><thead><tr><th>Vidéo</th><th>Créateur</th><th>Action</th></tr></thead><tbody id="table-videos-full"></tbody></table></div>
   </div>
 
-  <!-- Server Tab -->
   <div id="tab-server" style="display:none">
-    <div class="info-grid">
-      <div class="section">
-        <div class="section-header"><span class="section-title">⚙️ Info Serveur</span></div>
-        <div style="padding: 16px 20px">
-          <div class="info-row"><span class="info-key">URL Backend</span><span class="info-val">http://0.0.0.0:3000 <button class="copy-btn" onclick="copy('http://localhost:3000/api')">Copier</button></span></div>
-          <div class="info-row"><span class="info-key">URL Mobile (Android)</span><span class="info-val">http://10.0.2.2:3000/api <button class="copy-btn" onclick="copy('http://10.0.2.2:3000/api')">Copier</button></span></div>
-          <div class="info-row"><span class="info-key">Health Check</span><span class="info-val" id="health-status">—</span></div>
-          <div class="info-row"><span class="info-key">Base de données</span><span class="info-val">SQLite (database.sqlite)</span></div>
-          <div class="info-row"><span class="info-key">Port</span><span class="info-val">3000</span></div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="section-header"><span class="section-title">🔗 Routes API</span></div>
-        <div style="padding: 16px 20px">
-          <div class="info-row"><span class="info-key">POST</span><span class="info-val"><span class="tag">/api/auth/register</span></span></div>
-          <div class="info-row"><span class="info-key">POST</span><span class="info-val"><span class="tag">/api/auth/login</span></span></div>
-          <div class="info-row"><span class="info-key">GET</span><span class="info-val"><span class="tag">/api/videos</span></span></div>
-          <div class="info-row"><span class="info-key">POST</span><span class="info-val"><span class="tag">/api/videos</span></span></div>
-          <div class="info-row"><span class="info-key">GET</span><span class="info-val"><span class="tag">/api/users/:id</span></span></div>
-          <div class="info-row"><span class="info-key">GET</span><span class="info-val"><span class="tag">/api/health</span></span></div>
-        </div>
-      </div>
-    </div>
     <div class="section">
-      <div class="section-header"><span class="section-title">📱 Configuration IP locale</span></div>
       <div style="padding: 16px 20px">
-        <p style="font-size:13px; color:var(--muted); margin-bottom:16px">Entrez l'adresse IP de cette machine dans l'app mobile :</p>
-        <div id="local-ips" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div class="info-row"><span class="info-key">Base de données</span><span class="info-val">SQLite (Local)</span></div>
+        <div class="info-row"><span class="info-key">URL Sync</span><span class="info-val">Supabase Online</span></div>
       </div>
     </div>
   </div>
@@ -314,165 +165,45 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const API = '';  // Same origin
-
-  function showTab(name) {
-    ['dashboard','users','videos','server'].forEach(t => {
-      document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none';
-    });
-    document.querySelectorAll('.nav-item').forEach((el,i) => {
-      el.classList.toggle('active', ['dashboard','users','videos','server'][i] === name);
-    });
-    document.getElementById('page-title').textContent = {
-      dashboard:'Dashboard', users:'Utilisateurs', videos:'Vidéos', server:'Serveur'
-    }[name];
-    if (name === 'server') checkHealth();
-  }
-
-  function fmt(n) {
-    if (!n && n !== 0) return '—';
-    if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
-    if (n >= 1000) return (n/1000).toFixed(1)+'K';
-    return n.toString();
-  }
-
-  function initials(name) {
-    return (name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  }
-
   async function loadAll() {
-    await Promise.all([loadUsers(), loadVideos()]);
+    loadUsers();
+    loadVideos();
   }
 
   async function loadUsers() {
-    try {
-      const res = await fetch('/api/users');
-      const data = await res.json();
-      const users = Array.isArray(data) ? data : [];
-
-      document.getElementById('stat-users').textContent = users.length;
-      document.getElementById('count-users-dash').textContent = users.length + ' comptes';
-      document.getElementById('count-users-full').textContent = users.length + ' comptes';
-
-      const dashRows = users.slice(0,5).map(u => userRow(u, false)).join('');
-      const fullRows = users.map(u => userRow(u, true)).join('');
-
-      document.getElementById('table-users-dash').innerHTML = users.length ? dashRows : emptyState('Aucun utilisateur inscrit');
-      document.getElementById('table-users-full').innerHTML = users.length ? fullRows : emptyState('Aucun utilisateur inscrit');
-    } catch(e) {
-      const err = '<tr><td colspan="6" class="empty" style="color:#ef4444">❌ Impossible de charger les utilisateurs</td></tr>';
-      document.getElementById('table-users-dash').innerHTML = err;
-      document.getElementById('table-users-full').innerHTML = err;
-    }
-  }
-
-  function userRow(u, withAction) {
-    const verif = u.isVerified ? '<span class="verified">✓</span>' : '';
-    const del = withAction ? `<button class="delete-btn" onclick="deleteUser('${u.id}')">Supprimer</button>` : '';
-    return `<tr>
-      <td><div class="user-cell"><div class="avatar">${initials(u.fullName||u.username)}</div>${u.username||'—'}${verif}</div></td>
-      <td>${u.email||'—'}</td>
-      <td>${fmt(u.followers)}</td>
-      <td>${fmt(u.likes)}</td>
-      <td>${u.isVerified ? '✅' : '—'}</td>
-      ${withAction ? `<td>${del}</td>` : ''}
-    </tr>`;
+    const res = await fetch('/api/users');
+    const users = await res.json();
+    document.getElementById('stat-users').textContent = users.length;
+    const rows = users.map(u => `<tr><td><div class="user-cell"><div class="avatar">U</div>${u.username}</div></td><td>${u.email}</td><td><button class="delete-btn">Supprimer</button></td></tr>`).join('');
+    document.getElementById('table-users-dash').innerHTML = rows;
+    document.getElementById('table-users-full').innerHTML = rows;
   }
 
   async function loadVideos() {
+    const res = await fetch('/api/videos');
+    const videos = await res.json();
+    document.getElementById('stat-videos').textContent = videos.length;
+    const rows = videos.map(v => `<tr><td>Vidéo #${v.id.slice(0,5)}</td><td>${v.user_id}</td><td><button class="delete-btn">Supprimer</button></td></tr>`).join('');
+    document.getElementById('table-videos-full').innerHTML = rows;
+  }
+
+  async function syncCloud() {
+    const btn = document.getElementById('sync-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Synchronisation...';
     try {
-      const res = await fetch('/api/videos');
+      const res = await fetch('/api/sync', { method: 'POST' });
       const data = await res.json();
-      const allVideos = Array.isArray(data) ? data : [];
-      
-      const filter = document.getElementById('filter-provenance').value;
-      const videos = filter === 'all' ? allVideos : allVideos.filter(v => v.provenance === filter);
-
-      document.getElementById('stat-videos').textContent = allVideos.length;
-      document.getElementById('count-videos-dash').textContent = allVideos.length + ' vidéos';
-      document.getElementById('count-videos-full').textContent = videos.length + ' vidéos filtrées';
-
-      let totalLikes = 0, totalComments = 0;
-      allVideos.forEach(v => { totalLikes += (v.likes||0); totalComments += (v.commentsCount||0); });
-      document.getElementById('stat-likes').textContent = fmt(totalLikes);
-      document.getElementById('stat-comments').textContent = fmt(totalComments);
-
-      const dashRows = allVideos.slice(0,5).map(v => videoRow(v)).join('');
-      const fullRows = videos.map(v => videoRowFull(v)).join('');
-
-      document.getElementById('table-videos-dash').innerHTML = allVideos.length ? dashRows : emptyState('Aucune vidéo publiée');
-      document.getElementById('table-videos-full').innerHTML = videos.length ? fullRows : emptyState('Aucune vidéo publiée');
+      if (data.success) {
+        showToast(`✅ Synchro réussie: ${data.results.users} utilisateurs, ${data.results.videos} vidéos.`);
+      } else {
+        showToast('❌ Erreur: ' + data.error, true);
+      }
     } catch(e) {
-      const err = '<tr><td colspan="6" class="empty" style="color:#ef4444">❌ Impossible de charger les vidéos</td></tr>';
-      document.getElementById('table-videos-dash').innerHTML = err;
-      document.getElementById('table-videos-full').innerHTML = err;
+      showToast('❌ Erreur réseau', true);
     }
-  }
-
-  function videoRow(v) {
-    const preview = `<video src="${v.videoUrl}" style="width:60px;height:60px;border-radius:4px;object-fit:cover" muted onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"></video>`;
-    return `<tr>
-      <td><a href="${v.videoUrl}" target="_blank">${preview}</a></td>
-      <td>${v.user?.username || v.user_id || '—'}</td>
-      <td><span class="tag">${v.category||'—'}</span></td>
-      <td>${fmt(v.views)}</td>
-      <td><button class="delete-btn" onclick="deleteVideo('${v.id}')">Supprimer</button></td>
-    </tr>`;
-  }
-
-  function videoRowFull(v) {
-    const preview = `<video src="${v.videoUrl}" style="width:80px;height:80px;border-radius:4px;object-fit:cover" muted onmouseover="this.play()" onmouseout="this.pause();this.currentTime=0"></video>`;
-    const cap = v.caption ? v.caption.slice(0,50)+'…' : '—';
-    const provIcon = v.provenance === 'Cloudinary' ? '☁️' : '📁';
-    return `<tr>
-      <td><a href="${v.videoUrl}" target="_blank">${preview}</a></td>
-      <td>${v.user?.username || v.user_id || '—'}</td>
-      <td><span class="tag" style="background:rgba(255,255,255,0.05)">${provIcon} ${v.provenance}</span></td>
-      <td style="max-width:200px">${cap}<br/><small style="color:var(--muted);font-size:10px">${v.videoUrl}</small></td>
-      <td><button class="delete-btn" onclick="deleteVideo('${v.id}')">Supprimer</button></td>
-    </tr>`;
-  }
-
-  function emptyState(msg) {
-    return `<tr><td colspan="6" class="empty"><div class="empty-icon">📭</div>${msg}</td></tr>`;
-  }
-
-  async function deleteUser(id) {
-    if (!confirm('Supprimer cet utilisateur ?')) return;
-    try {
-      await fetch('/api/users/'+id, { method: 'DELETE' });
-      showToast('Utilisateur supprimé');
-      loadUsers();
-    } catch(e) { showToast('Erreur lors de la suppression', true); }
-  }
-
-  async function deleteVideo(id) {
-    if (!confirm('Supprimer cette vidéo ?')) return;
-    try {
-      await fetch('/api/videos/'+id, { method: 'DELETE' });
-      showToast('Vidéo supprimée');
-      loadVideos();
-    } catch(e) { showToast('Erreur lors de la suppression', true); }
-  }
-
-  async function checkHealth() {
-    try {
-      const res = await fetch('/api/health');
-      const data = await res.json();
-      document.getElementById('health-status').textContent = data.status === 'ok' ? '🟢 Opérationnel' : '🔴 Erreur';
-    } catch(e) {
-      document.getElementById('health-status').textContent = '🔴 Non accessible';
-    }
-    // Show local IPs hint
-    document.getElementById('local-ips').innerHTML = `
-      <span class="tag">http://10.0.2.2:3000/api</span>
-      <span style="font-size:12px;color:var(--muted);margin-left:8px">→ Android Emulator</span><br/>
-      <span style="font-size:12px;color:var(--muted);margin-top:4px">Pour appareil physique : utilisez l'IP Wi-Fi de votre PC (ex: http://192.168.x.x:3000/api)</span>
-    `;
-  }
-
-  function copy(text) {
-    navigator.clipboard.writeText(text).then(() => showToast('Copié dans le presse-papier !'));
+    btn.disabled = false;
+    btn.innerHTML = '☁️ Synchroniser avec le Cloud';
   }
 
   function showToast(msg, isError=false) {
@@ -480,12 +211,14 @@
     t.textContent = msg;
     t.style.background = isError ? '#ef4444' : '#10b981';
     t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', 3000);
+    setTimeout(() => t.style.display = 'none', 5000);
   }
 
-  // Init
+  function showTab(name) {
+    ['dashboard','users','videos','server'].forEach(t => document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none');
+  }
+
   loadAll();
-  setInterval(loadAll, 30000); // Auto-refresh every 30s
 </script>
 </body>
 </html>

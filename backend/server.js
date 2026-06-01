@@ -12,6 +12,7 @@ const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/videos');
 const userRoutes = require('./routes/users');
 const messageRoutes = require('./routes/messages');
+const syncRoutes = require('./routes/sync');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,6 +71,9 @@ setupDatabase().then(async (db) => {
 
   // ── Auth routes ──
   app.use('/api/auth', authRoutes);
+
+  // ── Sync routes ──
+  app.use('/api/sync', syncRoutes);
 
   // ── Video routes ──
   app.use('/api/videos', videoRoutes);
