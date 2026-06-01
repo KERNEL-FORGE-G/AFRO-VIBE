@@ -241,6 +241,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: SPACING.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  dividerText: {
+    color: COLORS.textSecondary,
+    marginHorizontal: SPACING.md,
+    fontSize: 12,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  socialBtn: {
+    flex: 0.48,
+    height: 50,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  socialBtnText: {
+    marginLeft: SPACING.sm,
+    fontWeight: 'bold',
+  },
   redirectContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
