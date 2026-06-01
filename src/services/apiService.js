@@ -68,6 +68,31 @@ export const authService = {
     return { user: data.user };
   },
 
+  signInWithGoogle: async () => {
+    // Note: This needs to be implemented to trigger the OAuth flow
+    throw new Error('signInWithGoogle non implémenté');
+  },
+
+  signInWithGitHub: async () => {
+    // Note: This needs to be implemented to trigger the OAuth flow
+    throw new Error('signInWithGitHub non implémenté');
+  },
+
+  createUserWithEmailAndPassword: async (email, password, username = 'new_user') => {
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, username })
+    });
+    const data = await getResponseJson(res);
+    if (!res.ok) throw new Error(data.error || "Erreur lors de l'inscription");
+    currentToken = data.token;
+    await AsyncStorage.setItem('USER_TOKEN', currentToken);
+    await AsyncStorage.setItem('CURRENT_USER', JSON.stringify(data.user));
+    triggerAuthListeners(data.user);
+    return { user: data.user };
+  },
+
   // Note: Social auth should be handled via browser/webview calling Supabase directly
   // then sending the token to the backend for verification if needed.
   // For simplicity, we keep the direct Supabase call for now if still needed,
