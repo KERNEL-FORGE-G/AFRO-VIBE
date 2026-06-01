@@ -109,6 +109,39 @@ export const LoginScreen = ({ navigation }) => {
             )}
           </TouchableOpacity>
 
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OU</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.socialButtons}>
+            <TouchableOpacity 
+              style={[styles.socialBtn, { backgroundColor: '#fff' }]} 
+              onPress={async () => {
+                try {
+                  await authService.signInWithGoogle();
+                  navigation.replace('MainTabs');
+                } catch (e) { setError(e.message); }
+              }}
+            >
+              <SVGIcon name="google" size={24} color="#000" />
+              <Text style={[styles.socialBtnText, { color: '#000' }]}>Google</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.socialBtn, { backgroundColor: '#333' }]}
+              onPress={async () => {
+                try {
+                  await authService.signInWithGitHub();
+                } catch (e) { setError(e.message); }
+              }}
+            >
+              <SVGIcon name="github" size={24} color="#fff" />
+              <Text style={[styles.socialBtnText, { color: '#fff' }]}>GitHub</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Register Redirect */}
           <View style={styles.redirectContainer}>
             <Text style={styles.redirectText}>Nouveau sur Afro Vibe ? </Text>
@@ -229,41 +262,6 @@ const styles = StyleSheet.create({
   },
   socialBtnText: {
     marginLeft: SPACING.sm,
-    fontWeight: 'bold',
-  },
-  redirectContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SPACING.xl,
-  },
-  redirectText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-  },
-  redirectLink: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  settingsBtn: {
-    padding: 5,
-  },
-});
-
-export default LoginScreen;
-borderWidth: 1,
-    borderColor: COLORS.accent,
-  },
-  loginBtnText: {
-    color: COLORS.text,
-    fontSize: 16,
     fontWeight: 'bold',
   },
   redirectContainer: {
