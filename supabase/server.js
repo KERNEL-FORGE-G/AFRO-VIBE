@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 
@@ -16,10 +17,8 @@ const supabase = createClient(
 app.use(cors());
 app.use(express.json());
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Afro Vibe Supabase Backend is running' });
-});
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware to use Supabase in routes
 app.use((req, res, next) => {
@@ -27,15 +26,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// Example route: Get Users
+// ── API Routes ──
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Afro Vibe Supabase Backend is running' });
+});
+
+// Get Users
 app.get('/api/users', async (req, res) => {
   const { data, error } = await req.supabase.from('users').select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
-// Auth integration would go here, though Supabase handles it directly
-// This server acts as a proxy or extended logic provider
+// Admin Dashboard: SPA fallback for any non-API GET request
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Supabase proxy server running on port ${PORT}`);
