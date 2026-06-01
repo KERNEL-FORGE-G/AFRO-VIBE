@@ -29,6 +29,13 @@ const triggerAuthListeners = (user) => {
   authListeners.forEach(listener => listener(user));
 };
 
+const fetchWithTimeout = (url, options, timeout = 15000) => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
+  ]);
+};
+
 export const configService = {
   getApiUrl: () => API_URL,
   getStorageMode: () => STORAGE_MODE,
@@ -49,6 +56,15 @@ export const configService = {
         triggerAuthListeners(currentUser);
       }
     } catch (e) {}
+  },
+  testConnection: async (url) => {
+    try {
+      const response = await fetchWithTimeout(`${url}/health`, {}, 8000);
+      const data = await getResponseJson(response);
+      return data.status === 'ok';
+    } catch (err) {
+      return false;
+    }
   }
 };
 
