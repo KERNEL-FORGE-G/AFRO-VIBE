@@ -9,7 +9,7 @@ import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import { configService, authService } from '../services/apiService';
 
-export const SettingsScreen = ({ navigation }) => {
+export default SettingsScreen = ({ navigation }) => {
   const [darkMode, setDarkMode] = useState(true);
   const [storageMode, setStorageMode] = useState(configService.getStorageMode());
   const [serverIp, setServerIp] = useState(configService.getApiUrl());
