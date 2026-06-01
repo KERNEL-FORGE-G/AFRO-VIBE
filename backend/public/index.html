@@ -7,139 +7,68 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #0d0d14;
-      --card: #15151f;
-      --card2: #1c1c2a;
-      --border: rgba(255,255,255,0.07);
-      --primary: #8b5cf6;
-      --accent: #f59e0b;
-      --red: #ef4444;
-      --green: #10b981;
-      --blue: #3b82f6;
-      --text: #f1f5f9;
-      --muted: #64748b;
-      --radius: 12px;
+      --bg: #0d0d14; --card: #15151f; --card2: #1c1c2a;
+      --border: rgba(255,255,255,0.07); --primary: #8b5cf6;
+      --accent: #f59e0b; --red: #ef4444; --green: #10b981;
+      --blue: #3b82f6; --text: #f1f5f9; --muted: #64748b; --radius: 12px;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      position: fixed; top: 0; left: 0; bottom: 0; width: 220px;
-      background: var(--card); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; padding: 24px 16px;
-      z-index: 100;
-    }
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; background: var(--card); border-right: 1px solid var(--border); padding: 24px 16px; }
     .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; padding: 0 8px; }
-    .logo-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-    }
-    .logo-text { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; }
-    .logo-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
-    .nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 8px; cursor: pointer;
-      color: var(--muted); font-size: 13px; font-weight: 500;
-      transition: all 0.2s; margin-bottom: 2px; text-decoration: none;
-    }
+    .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--primary), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500; transition: all 0.2s; margin-bottom: 2px; text-decoration: none; }
     .nav-item:hover, .nav-item.active { background: rgba(139,92,246,0.12); color: var(--text); }
-    .nav-item.active { border-left: 2px solid var(--primary); }
-    .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-    .status-dot {
-      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-      background: var(--green); margin-left: auto; animation: pulse 2s infinite;
-    }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    /* ── Main ── */
-    .main { margin-left: 220px; padding: 28px; min-height: 100vh; }
-    .topbar {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 28px;
-    }
-    .topbar h1 { font-size: 22px; font-weight: 700; }
-    .topbar-right { display: flex; align-items: center; gap: 12px; }
-    .badge {
-      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
-      background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3);
-    }
-    .sync-btn {
-      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
-      background: var(--blue); color: white; border: none; cursor: pointer;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .refresh-btn {
-      padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
-      background: var(--primary); color: white; border: none; cursor: pointer;
-    }
-
-    /* ── Stats Grid ── */
+    .main { margin-left: 220px; padding: 28px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+    .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+    .sync-btn { background: var(--blue); color: white; }
+    .refresh-btn { background: var(--primary); color: white; }
+    
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .stat-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 20px;
-    }
-    .stat-icon { font-size: 22px; margin-bottom: 12px; }
-    .stat-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
-    .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; }
-
-    /* ── Tables ── */
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .stat-value { font-size: 28px; font-weight: 800; }
+    
     .section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
-    .section-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px; border-bottom: 1px solid var(--border);
-    }
-    .section-title { font-size: 14px; font-weight: 700; }
+    .section-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; }
     table { width: 100%; border-collapse: collapse; }
-    th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; padding: 10px 20px; text-align: left; background: var(--card2); }
+    th { font-size: 11px; color: var(--muted); padding: 12px 20px; text-align: left; background: var(--card2); }
     td { font-size: 13px; padding: 12px 20px; border-top: 1px solid var(--border); }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 10px; }
-    .user-cell { display: flex; align-items: center; }
-    .delete-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; color: var(--red); background: rgba(239,68,68,0.1); border: 1px solid var(--red); cursor: pointer; }
-
-    /* ── Info ── */
-    .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-    .info-key { color: var(--muted); }
-    .copy-btn { font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; background: rgba(245,158,11,0.1); color: var(--accent); border: 1px solid var(--accent); }
-
-    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; display: none; z-index: 1000; color: white; }
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--border); }
+    
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; display: none; color: white; z-index: 1000; }
   </style>
 </head>
 <body>
 
 <aside class="sidebar">
-  <div class="logo">
-    <div class="logo-icon">🎵</div>
-    <div><div class="logo-text">AFRO VIBE</div><div class="logo-sub">Admin Panel (Local)</div></div>
-  </div>
-  <a class="nav-item active" onclick="showTab('dashboard')"><span class="nav-icon">📊</span>Dashboard</a>
-  <a class="nav-item" onclick="showTab('users')"><span class="nav-icon">👥</span>Utilisateurs</a>
-  <a class="nav-item" onclick="showTab('videos')"><span class="nav-icon">🎬</span>Vidéos</a>
-  <a class="nav-item" onclick="showTab('server')"><span class="nav-icon">⚙️</span>Serveur</a>
+  <div class="logo"><div class="logo-icon">🎵</div><div><strong>AFRO VIBE</strong><br><small style="color:var(--muted)">Admin Local</small></div></div>
+  <a class="nav-item active" onclick="showTab('dashboard')">📊 Dashboard</a>
+  <a class="nav-item" onclick="showTab('users')">👥 Utilisateurs</a>
+  <a class="nav-item" onclick="showTab('videos')">🎬 Vidéos</a>
+  <a class="nav-item" onclick="showTab('server')">⚙️ Serveur</a>
 </aside>
 
 <main class="main">
   <div class="topbar">
     <h1 id="page-title">Dashboard</h1>
-    <div class="topbar-right">
-      <button class="sync-btn" id="sync-btn" onclick="syncCloud()">☁️ Synchroniser avec le Cloud</button>
-      <button class="refresh-btn" onclick="loadAll()">⟳ Actualiser</button>
+    <div style="display:flex; gap:10px">
+      <button class="btn sync-btn" id="sync-btn" onclick="syncCloud()">☁️ Synchroniser avec le Cloud</button>
+      <button class="btn refresh-btn" onclick="loadAll()">⟳ Actualiser</button>
     </div>
   </div>
 
   <div id="tab-dashboard">
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="stat-users">—</div><div class="stat-label">Utilisateurs (Local)</div></div>
-      <div class="stat-card"><div class="stat-icon">🎬</div><div class="stat-value" id="stat-videos">—</div><div class="stat-label">Vidéos (Local)</div></div>
+      <div class="stat-card"><div class="stat-label">Utilisateurs</div><div class="stat-value" id="stat-users">—</div></div>
+      <div class="stat-card"><div class="stat-label">Vidéos</div><div class="stat-value" id="stat-videos">—</div></div>
     </div>
     <div class="section">
-      <div class="section-header"><span class="section-title">👥 Utilisateurs récents</span></div>
+      <div class="section-header">Utilisateurs récents</div>
       <table><tbody id="table-users-dash"></tbody></table>
     </div>
   </div>
@@ -153,10 +82,18 @@
   </div>
 
   <div id="tab-server" style="display:none">
-    <div class="section">
-      <div style="padding: 16px 20px">
-        <div class="info-row"><span class="info-key">Base de données</span><span class="info-val">SQLite (Local)</span></div>
-        <div class="info-row"><span class="info-key">URL Sync</span><span class="info-val">Supabase Online</span></div>
+    <div class="info-grid">
+      <div class="section">
+        <div class="section-header">⚙️ Info Serveur</div>
+        <div class="info-row"><span>URL Backend</span><span>http://localhost:3000</span></div>
+        <div class="info-row"><span>URL Mobile</span><span>http://10.0.2.2:3000/api</span></div>
+        <div class="info-row"><span>Status</span><span id="health-status">—</span></div>
+      </div>
+      <div class="section">
+        <div class="section-header">🔗 Routes API</div>
+        <div class="info-row"><span>Auth</span><span>/api/auth/...</span></div>
+        <div class="info-row"><span>Vidéos</span><span>/api/videos</span></div>
+        <div class="info-row"><span>Sync</span><span>/api/sync</span></div>
       </div>
     </div>
   </div>
@@ -166,58 +103,44 @@
 
 <script>
   async function loadAll() {
-    loadUsers();
-    loadVideos();
+    loadUsers(); loadVideos(); checkHealth();
   }
-
   async function loadUsers() {
     const res = await fetch('/api/users');
     const users = await res.json();
     document.getElementById('stat-users').textContent = users.length;
-    const rows = users.map(u => `<tr><td><div class="user-cell"><div class="avatar">U</div>${u.username}</div></td><td>${u.email}</td><td><button class="delete-btn">Supprimer</button></td></tr>`).join('');
-    document.getElementById('table-users-dash').innerHTML = rows;
-    document.getElementById('table-users-full').innerHTML = rows;
+    document.getElementById('table-users-dash').innerHTML = users.slice(0,5).map(u => `<tr><td>${u.username}</td><td>${u.email}</td></tr>`).join('');
+    document.getElementById('table-users-full').innerHTML = users.map(u => `<tr><td>${u.username}</td><td>${u.email}</td><td><button>Supprimer</button></td></tr>`).join('');
   }
-
   async function loadVideos() {
     const res = await fetch('/api/videos');
     const videos = await res.json();
     document.getElementById('stat-videos').textContent = videos.length;
-    const rows = videos.map(v => `<tr><td>Vidéo #${v.id.slice(0,5)}</td><td>${v.user_id}</td><td><button class="delete-btn">Supprimer</button></td></tr>`).join('');
-    document.getElementById('table-videos-full').innerHTML = rows;
+    document.getElementById('table-videos-full').innerHTML = videos.map(v => `<tr><td>#${v.id}</td><td>${v.user_id}</td><td><button>Supprimer</button></td></tr>`).join('');
   }
-
   async function syncCloud() {
     const btn = document.getElementById('sync-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Synchronisation...';
+    btn.disabled = true; btn.textContent = 'Synchronisation...';
     try {
       const res = await fetch('/api/sync', { method: 'POST' });
       const data = await res.json();
-      if (data.success) {
-        showToast(`✅ Synchro réussie: ${data.results.users} utilisateurs, ${data.results.videos} vidéos.`);
-      } else {
-        showToast('❌ Erreur: ' + data.error, true);
-      }
-    } catch(e) {
-      showToast('❌ Erreur réseau', true);
-    }
-    btn.disabled = false;
-    btn.innerHTML = '☁️ Synchroniser avec le Cloud';
+      showToast(data.success ? '✅ Synchro réussie' : '❌ Erreur: ' + data.error);
+    } catch(e) { showToast('❌ Erreur réseau', true); }
+    btn.disabled = false; btn.textContent = '☁️ Synchroniser avec le Cloud';
   }
-
-  function showToast(msg, isError=false) {
+  async function checkHealth() {
+    const res = await fetch('/api/health');
+    const data = await res.json();
+    document.getElementById('health-status').textContent = data.status === 'ok' ? '🟢 Opérationnel' : '🔴 Erreur';
+  }
+  function showToast(msg, err) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.style.background = isError ? '#ef4444' : '#10b981';
-    t.style.display = 'block';
-    setTimeout(() => t.style.display = 'none', 5000);
+    t.textContent = msg; t.style.background = err ? '#ef4444' : '#10b981'; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
   }
-
   function showTab(name) {
     ['dashboard','users','videos','server'].forEach(t => document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none');
   }
-
   loadAll();
 </script>
 </body>
