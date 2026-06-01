@@ -34,6 +34,14 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+
+        <!-- Deep Linking Filter -->
+        <intent-filter android:label="AfroVibe Auth Callback">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="afrovibe" android:host="auth" android:path="/callback" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>
