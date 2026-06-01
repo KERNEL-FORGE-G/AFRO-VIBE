@@ -18,7 +18,7 @@ export const ENV = {
     webClientId: '60620850112-48amj0p32oojgi73hmduhs5m41jr641a.apps.googleusercontent.com',
   },
   githubConfig: {
-    clientId: 'YOUR_GITHUB_CLIENT_ID',
+    clientId: 'Ov23li9WzX48paaewQ5Y',
   },
   onlineApiUrl: 'https://afro-vibe-backend.vercel.app/api',
   useMockFirebase: false, // Set to false to use real Firebase
