@@ -12,7 +12,7 @@
       "dest": "supabase/server.js"
     },
     {
-      "src": "/health",
+      "src": "/(.*)",
       "dest": "supabase/server.js"
     }
   ]
