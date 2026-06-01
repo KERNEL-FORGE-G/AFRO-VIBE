@@ -11,7 +11,8 @@ import {
   MoreVertical,
   ArrowUpRight,
   Zap,
-  Loader2
+  Loader2,
+  Music
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
