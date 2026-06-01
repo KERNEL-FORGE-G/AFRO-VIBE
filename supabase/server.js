@@ -9,62 +9,70 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Initialize Supabase safely
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-let supabase;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
-} else {
-  console.error('⚠️ Supabase credentials missing from environment variables!');
-}
+// Supabase client (Server-side ONLY)
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 app.use(cors());
 app.use(express.json());
 
-// Serve static files - path.join(__dirname, 'public') is standard for Vercel
-const publicPath = path.join(__dirname, 'public');
-app.use(express.static(publicPath));
+// Helper to authenticate user from Bearer Token
+async function getAuthUser(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return null;
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return error ? null : user;
+}
 
-// Middleware to use Supabase in routes
-app.use((req, res, next) => {
-  if (!supabase) {
-    return res.status(500).json({ error: 'Database connection not initialized. Check environment variables.' });
-  }
-  req.supabase = supabase;
-  next();
+// ── API Routes (Proxy to Supabase) ──
+
+// Videos
+app.get('/api/videos', async (req, res) => {
+  const { data, error } = await supabase.from('videos').select('*, users(*)').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-// ── API Routes ──
+app.post('/api/videos', async (req, res) => {
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Afro Vibe Supabase Backend is running 🎵' });
+  const { video_url, caption, category } = req.body;
+  const { data, error } = await supabase.from('videos').insert({
+    user_id: user.id,
+    video_url,
+    caption,
+    category
+  }).select().single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-// Get Users
-app.get('/api/users', async (req, res) => {
-  try {
-    const { data, error } = await req.supabase.from('users').select('*');
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// Likes
+app.post('/api/videos/:id/like', async (req, res) => {
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { error } = await supabase.from('likes').insert({
+    video_id: req.params.id,
+    user_id: user.id
+  });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-// Admin Dashboard: SPA fallback
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(publicPath, 'index.html'), (err) => {
-      if (err) {
-        res.status(404).send('Admin Dashboard not found');
-      }
-    });
-  }
+// Users
+app.get('/api/users/:id', async (req, res) => {
+  const { data, error } = await supabase.from('users').select('*').eq('id', req.params.id).single();
+  if (error) return res.status(404).json({ error: 'User not found' });
+  res.json(data);
 });
 
 app.listen(PORT, () => {
-  console.log(`Supabase proxy server running on port ${PORT}`);
+  console.log(`Backend proxy running on port ${PORT}`);
 });
