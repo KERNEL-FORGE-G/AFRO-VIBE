@@ -241,6 +241,18 @@ export const dbService = {
       avatarUrl: configService.fixMediaUrl(data.avatarUrl),
     };
   },
+  getMessages: async (otherUserId) => {
+    return apiFetch(`/messages/${otherUserId}`, {
+      headers: await getAuthHeaders(null),
+    });
+  },
+  sendMessage: async (receiverId, text) => {
+    return apiFetch(`/messages/${receiverId}`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ text }),
+    });
+  },
 };
 
 export default { auth: authService, db: dbService, config: configService };

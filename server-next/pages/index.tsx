@@ -8,7 +8,6 @@ import {
   Settings, 
   TrendingUp,
   Play,
-  MoreVertical,
   ArrowUpRight,
   Zap,
   Loader2,
@@ -191,7 +190,7 @@ export default function AfroVibeCommandCenter() {
             <div className="col-span-12 md:col-span-4 lg:col-span-3 p-8 rounded-[32px] bg-[#1F0E31]/40 border border-white/5">
                 <h3 className="text-xl font-black italic mb-6 text-white text-white">Elite Creators</h3>
                 <div className="space-y-6 text-white">
-                  {topCreators.map((creator, i) => (
+                  {topCreators.map((creator) => (
                     <div key={creator.id} className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-[#FF5E00]/20 flex items-center justify-center font-black text-[#FF5E00]">
                         {creator.username[0].toUpperCase()}
