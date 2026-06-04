@@ -1,13 +1,13 @@
 # 🎵 AFRO VIBE - Application de Partage de Danse Afro
 
-Afro Vibe est une application mobile de partage de vidéos courte durée, centrée sur la culture et la danse africaine. Elle utilise une architecture hybride flexible permettant de basculer entre différents modes de stockage et de backend.
+Afro Vibe est une application mobile de partage de vidéos courte durée, centrée sur la culture et la danse africaine. Elle utilise une architecture hybride permettant de travailler en **mode online** avec Firestore + Cloudinary, ou en **mode local** avec SQLite + fichiers locaux.
 
 ## 🚀 Fonctionnalités Clés
 - **Flux Vidéo (Feed) :** Lecture fluide de vidéos haute définition avec support du plein écran.
-- **Stockage Hybride :** Support de **Cloudinary** (optimisation CDN), **Supabase** (Cloud PostgreSQL) et **Local Backend** (SQLite).
+- **Stockage Hybride :** **Firestore** pour la base de données online, **Cloudinary** pour les images/vidéos, et **SQLite** en fallback local.
 - **Architecture MVC + Redux :** Gestion d'état robuste via Redux Toolkit pour une application fluide et prévisible.
 - **Authentification Sociale :** Connexion et inscription rapide via **Google** et **GitHub**.
-- **Mode En Ligne / Local :** Basculez entre le cloud (Supabase + Vercel) et le serveur local en un clic depuis les paramètres.
+- **Mode En Ligne / Local :** Basculez entre le cloud (Firestore + Cloudinary) et le serveur local depuis les paramètres.
 - **Interaction Sociale :** Système de likes, commentaires, partages et gestion de profil.
 
 ---
@@ -23,13 +23,13 @@ L'application utilise **Redux Toolkit** pour centraliser les données et assurer
 ### 🔌 Architecture de l'API (Dual Mode)
 Le service `apiService.js` agit comme un contrôleur intelligent :
 - **Mode Local** : Communique avec un serveur Express Node.js local qui utilise une base **SQLite**.
-- **Mode Online** : Communique directement avec le client **Supabase** pour l'authentification et les données, tout en utilisant un serveur proxy sur **Vercel** pour les logiques métier étendues.
+- **Mode Online** : Communique avec l'API backend. Le backend utilise **Firestore** pour les collections (`users`, `videos`, `comments`, `likes`, `follows`, `messages`) et **Cloudinary** pour les fichiers vidéo/avatar.
 - **Détection Automatique** : L'app détecte le mode choisi par l'utilisateur et ajuste ses URLs d'API dynamiquement.
 
-### ☁️ Infrastructure Cloud (Vercel & Supabase)
-- **Supabase** : Utilisé comme backend principal en ligne (Base de données PostgreSQL, Auth, Storage).
-- **Vercel** : Héberge le dossier `supabase/server.js` sous forme de fonctions serverless, agissant comme une passerelle sécurisée pour l'application.
-- **Auto-Déploiement** : Chaque `git push` sur la branche `main` déclenche une mise à jour automatique du serveur sur Vercel.
+### ☁️ Infrastructure Cloud (Firestore & Cloudinary)
+- **Firestore** : base de données principale en ligne.
+- **Cloudinary** : stockage/CDN pour avatars et vidéos.
+- **Backend Express** : conserve les mêmes endpoints REST que l'app mobile (`/api/auth`, `/api/videos`, `/api/users`, `/api/messages`, `/api/sync`) et choisit Firestore si Firebase Admin est configuré, sinon SQLite.
 
 ---
 
@@ -58,23 +58,22 @@ L'authentification a été implémentée pour offrir une expérience utilisateur
 │   ├── services/       # apiService (Online/Local logic)
 │   ├── screens/        # UI avec intégration Social Auth
 │   └── navigation/     # AppNavigator lié à l'état Redux
-├── supabase/           # Backend Online (Vercel)
-│   ├── server.js       # Proxy Serverless
-│   └── package.json    # Dépendances cloud
-├── backend/            # Backend Local (Node.js + SQLite)
-├── supabase.sql        # Schéma DB pour Supabase
-└── vercel.json         # Config de déploiement cloud
+├── backend/            # API Express: Firestore online + SQLite local
+├── server-next/        # Dashboard/API Next historique
+├── supabase.sql        # Ancien schéma Supabase conservé en référence
+└── .github/workflows/  # Build Android CI
 ```
 
 ---
 
 ## 📝 Guide d'Installation Rapide
 
-1. **Cloner et Installer** : `npm install`
-2. **Configurer l'Env** : Remplissez `src/config/env.js` avec vos clés Supabase et Google.
-3. **Initialiser la DB** : Exécutez le contenu de `supabase.sql` dans l'éditeur SQL de Supabase.
-4. **Déployer le Backend** : `vercel --prod` depuis la racine.
-5. **Lancer l'App** : `npm run android` ou `npm run ios`.
+1. **Installer l'app mobile** : `npm ci`
+2. **Installer le backend** : `npm --prefix backend ci`
+3. **Configurer l'Env backend** : copiez `backend/.env.example` vers `backend/.env` et remplissez Firebase Admin + Cloudinary.
+4. **Lancer le backend** : `npm run backend:dev`
+5. **Lancer l'app** : `npm run android` ou `npm run ios`
+6. **Build Android release** : `npm run build:android`
 
 ---
 

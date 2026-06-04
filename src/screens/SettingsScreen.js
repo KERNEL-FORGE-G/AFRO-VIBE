@@ -79,7 +79,7 @@ export default SettingsScreen = ({ navigation }) => {
             <SVGIcon name="live" size={20} color={storageMode === 'online' ? COLORS.accent : COLORS.textSecondary} style={styles.optionIcon} />
             <View>
               <Text style={[styles.optionLabel, storageMode === 'online' && styles.selectedText]}>Mode En Ligne</Text>
-              <Text style={styles.optionSubLabel}>Supabase + Cloudinary</Text>
+              <Text style={styles.optionSubLabel}>Firestore + Cloudinary</Text>
             </View>
           </View>
         </TouchableOpacity>

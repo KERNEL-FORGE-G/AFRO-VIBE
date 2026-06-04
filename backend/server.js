@@ -8,6 +8,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const setupDatabase = require('./database');
+const { isFirestoreEnabled } = require('./firebaseConfig');
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/videos');
 const userRoutes = require('./routes/users');
@@ -66,7 +67,12 @@ setupDatabase().then(async (db) => {
 
   // ── Health check ──
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Afro Vibe Backend is running 🎵' });
+    res.json({
+      status: 'ok',
+      message: 'Afro Vibe Backend is running',
+      database: isFirestoreEnabled() ? 'firestore' : 'sqlite',
+      mediaStorage: process.env.CLOUDINARY_CLOUD_NAME ? 'cloudinary' : 'local',
+    });
   });
 
   // ── Auth routes ──
