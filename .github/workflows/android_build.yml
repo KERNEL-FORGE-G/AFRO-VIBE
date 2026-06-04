@@ -42,10 +42,8 @@ jobs:
 
       - name: Build Android
         run: npm run build:android
-	  - name: Upload release APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: quizbit-release-apk-${{ github.run_number }}
+          name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
