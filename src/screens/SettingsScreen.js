@@ -9,7 +9,7 @@ import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import { configService, authService } from '../services/apiService';
 
-export default SettingsScreen = ({ navigation }) => {
+const SettingsScreen = ({ navigation }) => {
   const [darkMode, setDarkMode] = useState(true);
   const [storageMode, setStorageMode] = useState(configService.getStorageMode());
   const [serverIp, setServerIp] = useState(configService.getApiUrl());
@@ -79,7 +79,7 @@ export default SettingsScreen = ({ navigation }) => {
             <SVGIcon name="live" size={20} color={storageMode === 'online' ? COLORS.accent : COLORS.textSecondary} style={styles.optionIcon} />
             <View>
               <Text style={[styles.optionLabel, storageMode === 'online' && styles.selectedText]}>Mode En Ligne</Text>
-              <Text style={styles.optionSubLabel}>Supabase + Cloudinary</Text>
+              <Text style={styles.optionSubLabel}>Firestore + Cloudinary</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -145,3 +145,5 @@ const styles = StyleSheet.create({
   logoutBtn: { marginTop: SPACING.xl, backgroundColor: 'rgba(230, 0, 103, 0.1)', paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
   logoutBtnText: { color: COLORS.secondary, fontWeight: 'bold' },
 });
+
+export default SettingsScreen;

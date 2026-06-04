@@ -3,8 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const cloudinary = require('../cloudinaryConfig');
-const supabase = require('../supabaseClient');
+const { cloudinary, isCloudinaryConfigured } = require('../cloudinaryConfig');
+const { firestore, admin, isFirestorePrimary } = require('../firebaseConfig');
+const { getUserId } = require('../authUtils');
+const { shouldUseCloudinary } = require('../runtimeConfig');
 
 // Configure multer for video uploads
 const storage = multer.diskStorage({
@@ -21,8 +23,48 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Helper to get User ID from JWT or Header
-const getUserId = (req) => req.headers['x-user-id'] || 'user_h4nwy4x';
+function toClientVideo(video, user) {
+  const isCloudinary = video.videoUrl && video.videoUrl.includes('cloudinary.com');
+  return {
+    id: video.id,
+    videoUrl: video.videoUrl,
+    provenance: isCloudinary ? 'Cloudinary' : 'Local',
+    caption: video.caption,
+    likes: video.likes || 0,
+    commentsCount: video.commentsCount || 0,
+    shares: video.shares || 0,
+    audioName: video.audioName || 'Son Original',
+    category: video.category || 'Danse',
+    views: video.views || 0,
+    thumbnail: video.thumbnail || 'logo.jpg',
+    user: {
+      uid: user?.id || video.user_id || 'unknown',
+      username: user?.username || 'Utilisateur inconnu',
+      fullName: user?.fullName || user?.username || 'Utilisateur inconnu',
+      avatar: user?.avatar || 'logo.jpg',
+      isVerified: user?.isVerified === true || user?.isVerified === 1,
+      isFollowing: false,
+    },
+  };
+}
+
+async function getFirestoreUser(userId) {
+  if (!isFirestorePrimary() || !firestore || !userId) return null;
+  const doc = await firestore.collection('users').doc(userId).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
+
+async function uploadVideoToCloudinary(filePath) {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_large(filePath, {
+      resource_type: 'video',
+      folder: 'afrovibe/videos',
+    }, (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+  });
+}
 
 // Get all videos
 router.get('/', async (req, res) => {
@@ -30,36 +72,12 @@ router.get('/', async (req, res) => {
   try {
     let videos = [];
 
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('videos')
-        .select(`
-          *,
-          users (*)
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      videos = data.map(v => ({
-        id: v.id,
-        videoUrl: v.video_url,
-        provenance: 'Cloud',
-        caption: v.caption,
-        likes: v.likes_count,
-        commentsCount: v.comments_count,
-        shares: v.shares_count,
-        audioName: v.audio_name,
-        category: v.category,
-        views: v.views_count,
-        thumbnail: v.thumbnail_url,
-        user: {
-          uid: v.users.id,
-          username: v.users.username,
-          fullName: v.users.full_name,
-          avatar: v.users.avatar_url,
-          isVerified: v.users.is_verified
-        }
+    if (isFirestorePrimary()) {
+      const snapshot = await firestore.collection('videos').orderBy('created_at', 'desc').get();
+      videos = await Promise.all(snapshot.docs.map(async (doc) => {
+        const video = { id: doc.id, ...doc.data() };
+        const user = await getFirestoreUser(video.user_id);
+        return toClientVideo(video, user);
       }));
     } else if (db) {
       const localVideos = await db.all(`
@@ -73,29 +91,13 @@ router.get('/', async (req, res) => {
         let finalVideoUrl = v.videoUrl;
         const isCloudinary = v.videoUrl && (v.videoUrl.includes('cloudinary.com') || v.videoUrl.includes('res.cloudinary.com'));
         if (v.videoUrl && v.videoUrl.includes('/uploads/') && !isCloudinary) {
-          finalVideoUrl = v.videoUrl.replace(/http:\/\/[^\/]+/, `http://${req.headers.host}`);
+          finalVideoUrl = v.videoUrl.replace(/http:\/\/[^/]+/, `http://${req.headers.host}`);
         }
 
-        return {
-          id: v.id,
-          videoUrl: finalVideoUrl,
-          provenance: isCloudinary ? 'Cloudinary' : 'Local',
-          caption: v.caption,
-          likes: v.likes || 0,
-          commentsCount: v.commentsCount || 0,
-          shares: v.shares || 0,
-          audioName: v.audioName || 'Son Original',
-          category: v.category || 'Danse',
-          views: v.views || 0,
-          thumbnail: v.thumbnail || 'logo.jpg',
-          user: {
-            uid: v.user_id || 'unknown',
-            username: v.username || 'Utilisateur inconnu',
-            fullName: v.fullName || 'Utilisateur inconnu',
-            avatar: v.avatar || 'logo.jpg',
-            isVerified: v.isVerified === 1
-          }
-        };
+        return toClientVideo(
+          { ...v, id: v.id, videoUrl: finalVideoUrl },
+          { id: v.user_id, username: v.username, fullName: v.fullName, avatar: v.avatar, isVerified: v.isVerified }
+        );
       });
     }
 
@@ -109,28 +111,32 @@ router.get('/', async (req, res) => {
 // Like/Unlike a video
 router.post('/:id/like', async (req, res) => {
   const videoId = req.params.id;
-  const userId = getUserId(req);
+  const userId = getUserId(req, 'anonymous');
   const db = req.db;
   
   try {
-    if (supabase) {
-      // Logic for Supabase Like (simplified)
-      const { data: existingLike } = await supabase
-        .from('likes')
-        .select('*')
-        .eq('video_id', videoId)
-        .eq('user_id', userId)
-        .single();
+    if (isFirestorePrimary()) {
+      const likeId = `${videoId}_${userId}`;
+      const likeRef = firestore.collection('likes').doc(likeId);
+      const videoRef = firestore.collection('videos').doc(videoId);
+      const result = await firestore.runTransaction(async (transaction) => {
+        const likeDoc = await transaction.get(likeRef);
+        if (likeDoc.exists) {
+          transaction.delete(likeRef);
+          transaction.update(videoRef, { likes: admin.firestore.FieldValue.increment(-1) });
+          return { isLiked: false };
+        }
 
-      if (existingLike) {
-        await supabase.from('likes').delete().eq('id', existingLike.id);
-        await supabase.rpc('decrement_likes', { vid: videoId }); // Need a function in Postgres
-        res.json({ isLiked: false });
-      } else {
-        await supabase.from('likes').insert([{ video_id: videoId, user_id: userId }]);
-        await supabase.rpc('increment_likes', { vid: videoId });
-        res.json({ isLiked: true });
-      }
+        transaction.set(likeRef, {
+          id: likeId,
+          video_id: videoId,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+        });
+        transaction.update(videoRef, { likes: admin.firestore.FieldValue.increment(1) });
+        return { isLiked: true };
+      });
+      res.json(result);
     } else if (db) {
       const existingLike = await db.get('SELECT * FROM likes WHERE video_id = ? AND user_id = ?', [videoId, userId]);
       if (existingLike) {
@@ -151,15 +157,19 @@ router.post('/:id/like', async (req, res) => {
 
 // Upload video
 router.post('/', upload.single('video'), async (req, res) => {
-  const userId = getUserId(req);
+  const userId = getUserId(req, null);
   const db = req.db;
   const caption = req.body.caption || 'Nouvelle vidéo Afro Vibe !';
   const category = req.body.category || 'Danse';
   const audioName = req.body.audioName || 'Son Original';
   const bodyVideoUrl = req.body.videoUrl;
-  const useCloudinary = req.body.useCloudinary === 'true' || process.env.FORCE_CLOUDINARY === 'true' || !!supabase;
+  const useCloudinary = shouldUseCloudinary(req, isFirestorePrimary());
   
   try {
+    if (!userId) {
+      return res.status(401).json({ error: 'Utilisateur non authentifié.' });
+    }
+
     if (!req.file && !bodyVideoUrl) {
       return res.status(400).json({ error: 'Aucun fichier vidéo ou URL fourni.' });
     }
@@ -168,14 +178,11 @@ router.post('/', upload.single('video'), async (req, res) => {
 
     if (req.file) {
       if (useCloudinary) {
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_large(req.file.path, {
-            resource_type: 'video',
-            folder: 'afrovibe/videos',
-          }, (error, result) => {
-            if (error) reject(error); else resolve(result);
-          });
-        });
+        if (!isCloudinaryConfigured()) {
+          if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+          return res.status(500).json({ error: 'Cloudinary non configuré sur le serveur.' });
+        }
+        const result = await uploadVideoToCloudinary(req.file.path);
         videoUrl = result.secure_url;
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
       } else {
@@ -183,22 +190,25 @@ router.post('/', upload.single('video'), async (req, res) => {
       }
     }
     
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('videos')
-        .insert([{
-          user_id: userId,
-          video_url: videoUrl,
-          caption,
-          category,
-          audio_name: audioName,
-          thumbnail_url: 'logo.jpg'
-        }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      res.status(201).json({ success: true, videoId: data.id, videoUrl });
+    if (isFirestorePrimary()) {
+      const videoRef = firestore.collection('videos').doc();
+      const video = {
+        id: videoRef.id,
+        user_id: userId,
+        videoUrl,
+        caption,
+        likes: 0,
+        commentsCount: 0,
+        shares: 0,
+        audioName,
+        category,
+        views: 0,
+        thumbnail: 'logo.jpg',
+        created_at: new Date().toISOString(),
+      };
+      await videoRef.set(video);
+      const user = await getFirestoreUser(userId);
+      res.status(201).json({ success: true, videoId: videoRef.id, videoUrl, video: toClientVideo(video, user) });
     } else if (db) {
       const videoId = 'vid_' + Date.now();
       await db.run(`INSERT INTO videos (id, user_id, videoUrl, caption, likes, commentsCount, shares, audioName, category, views, thumbnail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -217,8 +227,10 @@ router.post('/:id/share', async (req, res) => {
   const videoId = req.params.id;
   const db = req.db;
   try {
-    if (supabase) {
-      await supabase.rpc('increment_shares', { vid: videoId });
+    if (isFirestorePrimary()) {
+      await firestore.collection('videos').doc(videoId).update({
+        shares: admin.firestore.FieldValue.increment(1),
+      });
     } else if (db) {
       await db.run('UPDATE videos SET shares = shares + 1 WHERE id = ?', [videoId]);
     }
@@ -235,24 +247,27 @@ router.get('/:id/comments', async (req, res) => {
   const db = req.db;
   try {
     let formatted = [];
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*, users(*)')
-        .eq('video_id', videoId)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      formatted = data.map(c => ({
-        id: c.id,
-        text: c.text,
-        time: '1h',
-        user: {
-          username: c.users.username,
-          fullName: c.users.full_name,
-          avatar: c.users.avatar_url
-        }
+    if (isFirestorePrimary()) {
+      const snapshot = await firestore.collection('comments')
+        .where('video_id', '==', videoId)
+        .get();
+      formatted = await Promise.all(snapshot.docs.map(async (doc) => {
+        const comment = { id: doc.id, ...doc.data() };
+        const user = await getFirestoreUser(comment.user_id);
+        return {
+          id: comment.id,
+          text: comment.text,
+          created_at: comment.created_at,
+          time: '1m',
+          user: {
+            uid: user?.id,
+            username: user?.username || 'user',
+            fullName: user?.fullName || user?.username || 'Utilisateur',
+            avatar: user?.avatar || 'logo.jpg',
+          },
+        };
       }));
+      formatted.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     } else if (db) {
       const comments = await db.all(`
         SELECT c.*, u.username, u.fullName, u.avatar
@@ -285,25 +300,47 @@ router.get('/:id/comments', async (req, res) => {
 router.post('/:id/comments', async (req, res) => {
   const videoId = req.params.id;
   const { text } = req.body;
-  const userId = getUserId(req);
+  const userId = getUserId(req, null);
   const db = req.db;
   
   try {
-    if (supabase) {
-      const { data, error } = await supabase
-        .from('comments')
-        .insert([{ video_id: videoId, user_id: userId, text }])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      await supabase.rpc('increment_comments', { vid: videoId });
-      res.status(201).json({ success: true, id: data.id });
+    if (!userId) {
+      return res.status(401).json({ error: 'Utilisateur non authentifié.' });
+    }
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Commentaire vide.' });
+    }
+
+    if (isFirestorePrimary()) {
+      const commentRef = firestore.collection('comments').doc();
+      const comment = {
+        id: commentRef.id,
+        video_id: videoId,
+        user_id: userId,
+        text: text.trim(),
+        created_at: new Date().toISOString(),
+      };
+      await commentRef.set(comment);
+      await firestore.collection('videos').doc(videoId).update({
+        commentsCount: admin.firestore.FieldValue.increment(1),
+      });
+      const user = await getFirestoreUser(userId);
+      res.status(201).json({
+        id: comment.id,
+        text: comment.text,
+        time: '1m',
+        user: {
+          uid: user?.id,
+          username: user?.username || 'user',
+          fullName: user?.fullName || user?.username || 'Utilisateur',
+          avatar: user?.avatar || 'logo.jpg',
+        },
+      });
     } else if (db) {
       const commentId = 'com_' + Date.now();
       await db.run(`INSERT INTO comments (id, video_id, user_id, text) VALUES (?, ?, ?, ?)`, [commentId, videoId, userId, text]);
       await db.run('UPDATE videos SET commentsCount = commentsCount + 1 WHERE id = ?', [videoId]);
-      res.status(201).json({ success: true, id: commentId });
+      res.status(201).json({ id: commentId, text, time: '1m', user: { username: 'Moi', avatar: 'logo.jpg' } });
     }
   } catch (err) {
     console.error(err);

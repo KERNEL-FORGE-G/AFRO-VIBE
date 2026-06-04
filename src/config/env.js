@@ -12,7 +12,7 @@ export const ENV = {
     clientId: 'Ov23li9WzX48paaewQ5Y',
   },
   onlineApiUrl: 'https://afro-vibe-backend.vercel.app/api',
-  storageMode: 'cloudinary', // Default to Cloudinary
+  storageMode: 'online', // Online = Firestore database + Cloudinary media.
 };
 
 export const SUPABASE_URL = ENV.supabaseConfig.url;

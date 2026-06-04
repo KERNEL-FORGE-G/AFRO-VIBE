@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,22 +27,24 @@ export const ChatScreen = () => {
   const [loading, setLoading] = useState(true);
   const flatListRef = useRef();
 
-  const loadMessages = async () => {
+  const otherUserId = otherUser.uid || otherUser.id;
+
+  const loadMessages = useCallback(async () => {
     try {
-      const data = await apiService.db.getMessages(otherUser.uid || otherUser.id);
+      const data = await apiService.db.getMessages(otherUserId);
       setMessages(data);
     } catch (err) {
       console.error('Error loading messages:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [otherUserId]);
 
   useEffect(() => {
     loadMessages();
     const interval = setInterval(loadMessages, 5000); // Poll every 5 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [loadMessages]);
 
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -51,7 +53,7 @@ export const ChatScreen = () => {
     setInputText('');
 
     try {
-      await apiService.db.sendMessage(otherUser.uid || otherUser.id, textToSend);
+      await apiService.db.sendMessage(otherUserId, textToSend);
       loadMessages();
     } catch (err) {
       console.error('Error sending message:', err);

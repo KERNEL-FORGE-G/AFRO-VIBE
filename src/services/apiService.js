@@ -3,8 +3,11 @@ import { Platform } from 'react-native';
 import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import { ENV } from '../config/env';
 
-let API_URL = ENV.onlineApiUrl || 'http://10.2.9.113:3000/api';
-let STORAGE_MODE = 'offline';
+const DEFAULT_LOCAL_API_URL = 'http://10.2.9.113:3000/api';
+const normalizeApiUrl = (url) => (url || '').replace(/\/+$/, '');
+
+let API_URL = normalizeApiUrl(ENV.onlineApiUrl || DEFAULT_LOCAL_API_URL);
+let STORAGE_MODE = ENV.storageMode || 'online';
 let currentUser = null;
 const authListeners = new Set();
 
@@ -12,6 +15,24 @@ const getResponseJson = async (response) => {
   const text = await response.text();
   if (!text) return {};
   try { return JSON.parse(text); } catch (error) { return {}; }
+};
+
+const getAuthHeaders = async (contentType = 'application/json') => {
+  const token = await AsyncStorage.getItem('USER_TOKEN');
+  const headers = {};
+  if (contentType) headers['Content-Type'] = contentType;
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (currentUser?.uid) headers['X-User-Id'] = currentUser.uid;
+  return headers;
+};
+
+const apiFetch = async (path, options = {}) => {
+  const response = await fetch(`${API_URL}${path}`, options);
+  const data = await getResponseJson(response);
+  if (!response.ok) {
+    throw new Error(data.error || `Erreur API (${response.status})`);
+  }
+  return data;
 };
 
 const triggerAuthListeners = (user) => {
@@ -37,16 +58,20 @@ const saveSession = async (user, token) => {
 export const configService = {
   getApiUrl: () => API_URL,
   getStorageMode: () => STORAGE_MODE,
+  setApiUrl: async (url) => {
+    API_URL = normalizeApiUrl(url);
+    await AsyncStorage.setItem('API_URL', API_URL);
+  },
   setStorageMode: async (mode) => {
     STORAGE_MODE = mode;
-    API_URL = mode === 'online' ? ENV.onlineApiUrl : (await AsyncStorage.getItem('API_URL') || 'http://10.2.9.113:3000/api');
+    API_URL = mode === 'online' ? normalizeApiUrl(ENV.onlineApiUrl) : normalizeApiUrl(await AsyncStorage.getItem('API_URL') || DEFAULT_LOCAL_API_URL);
     await AsyncStorage.setItem('STORAGE_MODE', mode);
   },
   loadConfig: async () => {
     try {
-      const savedMode = await AsyncStorage.getItem('STORAGE_MODE') || 'offline';
+      const savedMode = await AsyncStorage.getItem('STORAGE_MODE') || ENV.storageMode || 'online';
       STORAGE_MODE = savedMode;
-      API_URL = savedMode === 'online' ? ENV.onlineApiUrl : (await AsyncStorage.getItem('API_URL') || 'http://10.2.9.113:3000/api');
+      API_URL = savedMode === 'online' ? normalizeApiUrl(ENV.onlineApiUrl) : normalizeApiUrl(await AsyncStorage.getItem('API_URL') || DEFAULT_LOCAL_API_URL);
       
       const savedUserRaw = await AsyncStorage.getItem('CURRENT_USER');
       if (savedUserRaw) {
@@ -54,7 +79,23 @@ export const configService = {
         triggerAuthListeners(currentUser);
       }
     } catch (e) {}
-  }
+  },
+  testConnection: async (url) => {
+    try {
+      const response = await fetch(`${normalizeApiUrl(url)}/health`);
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  },
+  fixMediaUrl: (url) => {
+    if (!url) return null;
+    if (/^(https?:|file:|content:|data:)/.test(url)) return url;
+
+    const apiRoot = API_URL.replace(/\/api$/, '');
+    if (url.startsWith('/')) return `${apiRoot}${url}`;
+    return `${apiRoot}/${url}`;
+  },
 };
 
 export const authService = {
@@ -108,16 +149,29 @@ export const authService = {
 
 export const dbService = {
   getVideos: async () => {
-    const res = await fetch(`${API_URL}/videos`);
-    return await getResponseJson(res);
+    return apiFetch('/videos');
   },
   likeVideo: async (videoId) => {
-    const token = await AsyncStorage.getItem('USER_TOKEN');
-    const res = await fetch(`${API_URL}/videos/${videoId}/like`, { 
+    return apiFetch(`/videos/${videoId}/like`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: await getAuthHeaders(null),
     });
-    return await getResponseJson(res);
+  },
+  shareVideo: async (videoId) => {
+    return apiFetch(`/videos/${videoId}/share`, {
+      method: 'POST',
+      headers: await getAuthHeaders(null),
+    });
+  },
+  getComments: async (videoId) => {
+    return apiFetch(`/videos/${videoId}/comments`);
+  },
+  addComment: async (videoId, text) => {
+    return apiFetch(`/videos/${videoId}/comments`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ text }),
+    });
   },
   uploadVideo: async (videoUri, caption, category) => {
     const formData = new FormData();
@@ -128,15 +182,77 @@ export const dbService = {
     });
     formData.append('caption', caption);
     formData.append('category', category);
+    formData.append('useCloudinary', STORAGE_MODE === 'online' ? 'true' : 'false');
 
-    const token = await AsyncStorage.getItem('USER_TOKEN');
     const res = await fetch(`${API_URL}/videos`, {
       method: 'POST',
       body: formData,
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: await getAuthHeaders(null),
     });
-    return await getResponseJson(res);
-  }
+    const data = await getResponseJson(res);
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la publication');
+    return data;
+  },
+  getUser: async (userId) => {
+    return apiFetch(`/users/${userId}`, {
+      headers: await getAuthHeaders(null),
+    });
+  },
+  updateProfile: async (updates) => {
+    if (!currentUser?.uid) throw new Error('Utilisateur non connecté');
+    return apiFetch(`/users/${currentUser.uid}`, {
+      method: 'PUT',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(updates),
+    });
+  },
+  followUser: async (userId) => {
+    return apiFetch(`/users/${userId}/follow`, {
+      method: 'POST',
+      headers: await getAuthHeaders(null),
+    });
+  },
+  unfollowUser: async (userId) => {
+    return apiFetch(`/users/${userId}/unfollow`, {
+      method: 'POST',
+      headers: await getAuthHeaders(null),
+    });
+  },
+  uploadAvatar: async (imageUri) => {
+    if (!currentUser?.uid) throw new Error('Utilisateur non connecté');
+
+    const formData = new FormData();
+    formData.append('avatar', {
+      uri: Platform.OS === 'android' ? imageUri : imageUri.replace('file://', ''),
+      type: 'image/jpeg',
+      name: `avatar_${Date.now()}.jpg`,
+    });
+    formData.append('useCloudinary', STORAGE_MODE === 'online' ? 'true' : 'false');
+
+    const res = await fetch(`${API_URL}/users/${currentUser.uid}/avatar`, {
+      method: 'POST',
+      body: formData,
+      headers: await getAuthHeaders(null),
+    });
+    const data = await getResponseJson(res);
+    if (!res.ok) throw new Error(data.error || 'Erreur lors de la mise à jour avatar');
+    return {
+      ...data,
+      avatarUrl: configService.fixMediaUrl(data.avatarUrl),
+    };
+  },
+  getMessages: async (otherUserId) => {
+    return apiFetch(`/messages/${otherUserId}`, {
+      headers: await getAuthHeaders(null),
+    });
+  },
+  sendMessage: async (receiverId, text) => {
+    return apiFetch(`/messages/${receiverId}`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ text }),
+    });
+  },
 };
 
 export default { auth: authService, db: dbService, config: configService };

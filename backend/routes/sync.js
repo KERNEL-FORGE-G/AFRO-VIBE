@@ -1,25 +1,12 @@
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+const { firestore } = require('../firebaseConfig');
 const router = express.Router();
-
-// Initialize Supabase (from environment variables)
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-console.log('Sync route initializing with URL:', supabaseUrl);
-
-let supabase;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
-} else {
-  console.error('⚠️ Supabase credentials missing!');
-}
 
 router.post('/', async (req, res) => {
   const db = req.db;
 
-  if (!supabase) {
-    return res.status(500).json({ error: 'Supabase non configuré sur le serveur local.' });
+  if (!firestore) {
+    return res.status(500).json({ error: 'Firestore non configuré sur le serveur.' });
   }
 
   try {
@@ -28,50 +15,51 @@ router.post('/', async (req, res) => {
     // 1. Sync Users
     const localUsers = await db.all('SELECT * FROM users');
     for (const user of localUsers) {
-      // Use UPSERT by email to prevent duplicates
-      const { data, error } = await supabase.from('users').upsert({
+      try {
+        await firestore.collection('users').doc(user.id).set({
+        id: user.id,
         username: user.username,
         email: user.email,
-        full_name: user.fullName || user.username,
-        avatar_url: user.avatar || 'logo.jpg',
+        password_hash: user.password_hash,
+        fullName: user.fullName || user.username,
+        avatar: user.avatar || 'logo.jpg',
         bio: user.bio,
-        is_verified: user.isVerified === 1
-      }, { onConflict: 'email' }).select().single();
-      
-      if (error) {
+        followers: user.followers || 0,
+        following: user.following || 0,
+        likes: user.likes || 0,
+        isVerified: user.isVerified === 1,
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
+        results.users++;
+      } catch (error) {
         console.error('Sync user error:', error);
         results.errors.push(`User ${user.username}: ${error.message}`);
-      } else {
-        results.users++;
-        // Update local user ID with cloud ID if needed
       }
     }
 
     // 2. Sync Videos
     const localVideos = await db.all('SELECT * FROM videos');
     for (const video of localVideos) {
-      // Find the user in local to get email
-      const localUser = localUsers.find(u => u.id === video.user_id);
-      if (!localUser) continue;
-
-      // Find the user in cloud to get cloud ID
-      const { data: cloudUser } = await supabase.from('users').select('id').eq('email', localUser.email).single();
-      if (!cloudUser) continue;
-
-      const { error } = await supabase.from('videos').upsert({
-        user_id: cloudUser.id,
-        video_url: video.videoUrl,
+      try {
+        await firestore.collection('videos').doc(video.id).set({
+        id: video.id,
+        user_id: video.user_id,
+        videoUrl: video.videoUrl,
         caption: video.caption,
+        likes: video.likes || 0,
+        commentsCount: video.commentsCount || 0,
+        shares: video.shares || 0,
+        audioName: video.audioName || 'Son Original',
         category: video.category,
-        views_count: video.views,
-        thumbnail_url: video.thumbnail
-      }, { onConflict: 'video_url' });
-
-      if (error) {
+        views: video.views || 0,
+        thumbnail: video.thumbnail || 'logo.jpg',
+        created_at: video.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { merge: true });
+        results.videos++;
+      } catch (error) {
         console.error('Sync video error:', error);
         results.errors.push(`Video ${video.id}: ${error.message}`);
-      } else {
-        results.videos++;
       }
     }
 

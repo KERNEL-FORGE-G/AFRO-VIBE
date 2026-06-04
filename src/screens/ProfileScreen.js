@@ -90,7 +90,7 @@ export const ProfileScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
-  }, [navigation, targetUserId, currentUser?.uid, isOwnProfile]);
+  }, [navigation, targetUserId, currentUser, isOwnProfile]);
 
   useFocusEffect(
     useCallback(() => {
