@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const dotenv = require('dotenv');
+const { databaseMode, hasFirebaseCredentials } = require('./runtimeConfig');
 
 dotenv.config();
 
@@ -17,6 +18,15 @@ function initializeFirestore() {
   const privateKey = normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
   try {
+    if (!hasFirebaseCredentials()) {
+      if (databaseMode === 'firestore') {
+        console.error('Firestore requested with DATABASE_MODE=firestore, but Firebase credentials are missing.');
+      } else {
+        console.warn('Firestore disabled: missing Firebase Admin credentials.');
+      }
+      return null;
+    }
+
     if (!admin.apps.length) {
       if (projectId && clientEmail && privateKey) {
         admin.initializeApp({
@@ -31,9 +41,6 @@ function initializeFirestore() {
           credential: admin.credential.applicationDefault(),
           projectId,
         });
-      } else {
-        console.warn('Firestore disabled: missing Firebase Admin credentials.');
-        return null;
       }
     }
 
@@ -51,4 +58,5 @@ module.exports = {
   admin,
   firestore: initializeFirestore(),
   isFirestoreEnabled: () => !!firestore,
+  isFirestorePrimary: () => databaseMode !== 'sqlite' && !!firestore,
 };

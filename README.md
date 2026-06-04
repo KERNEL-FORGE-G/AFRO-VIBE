@@ -22,14 +22,15 @@ L'application utilise **Redux Toolkit** pour centraliser les données et assurer
 
 ### 🔌 Architecture de l'API (Dual Mode)
 Le service `apiService.js` agit comme un contrôleur intelligent :
-- **Mode Local** : Communique avec un serveur Express Node.js local qui utilise une base **SQLite**.
+- **Mode Local / Offline** : Communique avec un serveur Express Node.js local qui utilise **SQLite** et le dossier local `backend/uploads`.
 - **Mode Online** : Communique avec l'API backend. Le backend utilise **Firestore** pour les collections (`users`, `videos`, `comments`, `likes`, `follows`, `messages`) et **Cloudinary** pour les fichiers vidéo/avatar.
 - **Détection Automatique** : L'app détecte le mode choisi par l'utilisateur et ajuste ses URLs d'API dynamiquement.
 
 ### ☁️ Infrastructure Cloud (Firestore & Cloudinary)
 - **Firestore** : base de données principale en ligne.
 - **Cloudinary** : stockage/CDN pour avatars et vidéos.
-- **Backend Express** : conserve les mêmes endpoints REST que l'app mobile (`/api/auth`, `/api/videos`, `/api/users`, `/api/messages`, `/api/sync`) et choisit Firestore si Firebase Admin est configuré, sinon SQLite.
+- **Backend Express** : conserve les mêmes endpoints REST que l'app mobile (`/api/auth`, `/api/videos`, `/api/users`, `/api/messages`, `/api/sync`).
+- **Bascule `.env`** : `DATABASE_MODE=firestore` pour online, `DATABASE_MODE=sqlite` pour local/offline, ou `DATABASE_MODE=auto` pour choisir Firestore seulement si les clés Firebase existent.
 
 ---
 
@@ -37,14 +38,9 @@ Le service `apiService.js` agit comme un contrôleur intelligent :
 
 L'authentification a été implémentée pour offrir une expérience utilisateur sans friction ("One-tap sign-in").
 
-### 1. Google Auth (Android)
-- **Côté Google Cloud** : Un identifiant **Android** est nécessaire pour le téléphone, et un identifiant **Web** est nécessaire pour que Supabase valide la connexion.
-- **SHA-1** : L'empreinte numérique du certificat de signature lie l'application mobile à votre projet Google.
-- **Liaison** : Le `webClientId` configuré dans `src/config/env.js` est le pont qui permet à l'app de demander une autorisation à Google au nom de Supabase.
+L'authentification email/mot de passe est gérée par l'API Express avec JWT et fonctionne en mode Firestore comme en mode SQLite.
 
-### 2. GitHub Auth
-- **OAuth App** : Configurée via les paramètres développeur de GitHub.
-- **Redirect URI** : Pointe vers l'URL de callback spécifique de votre instance Supabase (`/auth/v1/callback`).
+Les boutons Google/GitHub sont présents dans l'interface, mais ils nécessitent une intégration OAuth/Firebase Auth dédiée si vous voulez les activer en production.
 
 ---
 
@@ -70,8 +66,12 @@ L'authentification a été implémentée pour offrir une expérience utilisateur
 
 1. **Installer l'app mobile** : `npm ci`
 2. **Installer le backend** : `npm --prefix backend ci`
-3. **Configurer l'Env backend** : copiez `backend/.env.example` vers `backend/.env` et remplissez Firebase Admin + Cloudinary.
-4. **Lancer le backend** : `npm run backend:dev`
+3. **Configurer l'Env backend** : copiez `backend/.env.example` vers `backend/.env`.
+   - Online : `DATABASE_MODE=firestore`, `MEDIA_STORAGE=cloudinary`, puis renseignez Firebase Admin + Cloudinary.
+   - Offline/local : `DATABASE_MODE=sqlite`, `MEDIA_STORAGE=local`; Firebase/Cloudinary peuvent rester vides.
+4. **Lancer le backend** :
+   - Online : `npm run backend:dev:online`
+   - Offline/local : `npm run backend:dev:offline`
 5. **Lancer l'app** : `npm run android` ou `npm run ios`
 6. **Build Android release** : `npm run build:android`
 

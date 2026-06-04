@@ -13,6 +13,10 @@
     "clean:android": "cd android && ./gradlew clean",
     "backend:start": "npm --prefix backend start",
     "backend:dev": "npm --prefix backend run dev",
+    "backend:online": "npm --prefix backend run start:online",
+    "backend:offline": "npm --prefix backend run start:offline",
+    "backend:dev:online": "npm --prefix backend run dev:online",
+    "backend:dev:offline": "npm --prefix backend run dev:offline",
     "next:dev": "npm --prefix server-next run dev",
     "next:build": "npm --prefix server-next run build",
     "next:start": "npm --prefix server-next run start"

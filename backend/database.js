@@ -1,7 +1,5 @@
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const bcrypt = require('bcrypt');
-const fs = require('fs');
 
 async function setupDatabase() {
   const db = await open({

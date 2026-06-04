@@ -3,9 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const cloudinary = require('../cloudinaryConfig');
-const { firestore, admin } = require('../firebaseConfig');
+const { cloudinary, isCloudinaryConfigured } = require('../cloudinaryConfig');
+const { firestore, admin, isFirestorePrimary } = require('../firebaseConfig');
 const { getUserId } = require('../authUtils');
+const { shouldUseCloudinary } = require('../runtimeConfig');
 
 // Configure multer for video uploads
 const storage = multer.diskStorage({
@@ -48,7 +49,7 @@ function toClientVideo(video, user) {
 }
 
 async function getFirestoreUser(userId) {
-  if (!firestore || !userId) return null;
+  if (!isFirestorePrimary() || !firestore || !userId) return null;
   const doc = await firestore.collection('users').doc(userId).get();
   return doc.exists ? { id: doc.id, ...doc.data() } : null;
 }
@@ -71,7 +72,7 @@ router.get('/', async (req, res) => {
   try {
     let videos = [];
 
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const snapshot = await firestore.collection('videos').orderBy('created_at', 'desc').get();
       videos = await Promise.all(snapshot.docs.map(async (doc) => {
         const video = { id: doc.id, ...doc.data() };
@@ -90,7 +91,7 @@ router.get('/', async (req, res) => {
         let finalVideoUrl = v.videoUrl;
         const isCloudinary = v.videoUrl && (v.videoUrl.includes('cloudinary.com') || v.videoUrl.includes('res.cloudinary.com'));
         if (v.videoUrl && v.videoUrl.includes('/uploads/') && !isCloudinary) {
-          finalVideoUrl = v.videoUrl.replace(/http:\/\/[^\/]+/, `http://${req.headers.host}`);
+          finalVideoUrl = v.videoUrl.replace(/http:\/\/[^/]+/, `http://${req.headers.host}`);
         }
 
         return toClientVideo(
@@ -114,7 +115,7 @@ router.post('/:id/like', async (req, res) => {
   const db = req.db;
   
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const likeId = `${videoId}_${userId}`;
       const likeRef = firestore.collection('likes').doc(likeId);
       const videoRef = firestore.collection('videos').doc(videoId);
@@ -162,7 +163,7 @@ router.post('/', upload.single('video'), async (req, res) => {
   const category = req.body.category || 'Danse';
   const audioName = req.body.audioName || 'Son Original';
   const bodyVideoUrl = req.body.videoUrl;
-  const useCloudinary = req.body.useCloudinary === 'true' || process.env.FORCE_CLOUDINARY === 'true' || !!firestore;
+  const useCloudinary = shouldUseCloudinary(req, isFirestorePrimary());
   
   try {
     if (!userId) {
@@ -177,6 +178,10 @@ router.post('/', upload.single('video'), async (req, res) => {
 
     if (req.file) {
       if (useCloudinary) {
+        if (!isCloudinaryConfigured()) {
+          if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+          return res.status(500).json({ error: 'Cloudinary non configuré sur le serveur.' });
+        }
         const result = await uploadVideoToCloudinary(req.file.path);
         videoUrl = result.secure_url;
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -185,7 +190,7 @@ router.post('/', upload.single('video'), async (req, res) => {
       }
     }
     
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const videoRef = firestore.collection('videos').doc();
       const video = {
         id: videoRef.id,
@@ -222,7 +227,7 @@ router.post('/:id/share', async (req, res) => {
   const videoId = req.params.id;
   const db = req.db;
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       await firestore.collection('videos').doc(videoId).update({
         shares: admin.firestore.FieldValue.increment(1),
       });
@@ -242,10 +247,9 @@ router.get('/:id/comments', async (req, res) => {
   const db = req.db;
   try {
     let formatted = [];
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const snapshot = await firestore.collection('comments')
         .where('video_id', '==', videoId)
-        .orderBy('created_at', 'desc')
         .get();
       formatted = await Promise.all(snapshot.docs.map(async (doc) => {
         const comment = { id: doc.id, ...doc.data() };
@@ -253,6 +257,7 @@ router.get('/:id/comments', async (req, res) => {
         return {
           id: comment.id,
           text: comment.text,
+          created_at: comment.created_at,
           time: '1m',
           user: {
             uid: user?.id,
@@ -262,6 +267,7 @@ router.get('/:id/comments', async (req, res) => {
           },
         };
       }));
+      formatted.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
     } else if (db) {
       const comments = await db.all(`
         SELECT c.*, u.username, u.fullName, u.avatar
@@ -305,7 +311,7 @@ router.post('/:id/comments', async (req, res) => {
       return res.status(400).json({ error: 'Commentaire vide.' });
     }
 
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const commentRef = firestore.collection('comments').doc();
       const comment = {
         id: commentRef.id,

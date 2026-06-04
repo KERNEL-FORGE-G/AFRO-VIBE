@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const { firestore } = require('../firebaseConfig');
+const { firestore, isFirestorePrimary } = require('../firebaseConfig');
 const { createToken } = require('../authUtils');
 
 const router = express.Router();
@@ -47,7 +47,7 @@ router.post('/register', async (req, res) => {
     // 1. Check if user exists (Firestore online or SQLite local)
     let existingUser = null;
     
-    if (firestore) {
+    if (isFirestorePrimary()) {
       existingUser = await findFirestoreUserByEmail(email) || await findFirestoreUserByUsername(username);
     } else if (db) {
       existingUser = await db.get('SELECT * FROM users WHERE email = ? OR username = ?', [email, username]);
@@ -65,7 +65,7 @@ router.post('/register', async (req, res) => {
     let finalUser = null;
 
     // 3. Save to Firestore (online mode)
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const user = {
         id: userId,
         username,
@@ -85,7 +85,7 @@ router.post('/register', async (req, res) => {
     } 
     
     // 4. Save to Local SQLite when Firestore is not configured
-    if (!firestore && db) {
+    if (!isFirestorePrimary() && db) {
       const localId = userId;
       await db.run(
         `INSERT INTO users (id, username, email, password_hash, fullName, avatar, isVerified) VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -117,7 +117,7 @@ router.post('/login', async (req, res) => {
     let user = null;
 
     // 1. Try Firestore first (online)
-    if (firestore) {
+    if (isFirestorePrimary()) {
       user = await findFirestoreUserByEmail(email);
     } 
     

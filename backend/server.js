@@ -8,7 +8,8 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const setupDatabase = require('./database');
-const { isFirestoreEnabled } = require('./firebaseConfig');
+const { firestore, isFirestoreEnabled, isFirestorePrimary } = require('./firebaseConfig');
+const { databaseMode, mediaStorage, hasFirebaseCredentials, hasCloudinaryCredentials } = require('./runtimeConfig');
 const authRoutes = require('./routes/auth');
 const videoRoutes = require('./routes/videos');
 const userRoutes = require('./routes/users');
@@ -70,8 +71,13 @@ setupDatabase().then(async (db) => {
     res.json({
       status: 'ok',
       message: 'Afro Vibe Backend is running',
-      database: isFirestoreEnabled() ? 'firestore' : 'sqlite',
-      mediaStorage: process.env.CLOUDINARY_CLOUD_NAME ? 'cloudinary' : 'local',
+      configuredDatabaseMode: databaseMode,
+      activeDatabase: isFirestorePrimary() ? 'firestore' : 'sqlite',
+      firestoreAvailable: isFirestoreEnabled(),
+      firebaseCredentialsPresent: hasFirebaseCredentials(),
+      configuredMediaStorage: mediaStorage,
+      activeMediaStorage: hasCloudinaryCredentials() ? 'cloudinary' : 'local',
+      cloudinaryCredentialsPresent: hasCloudinaryCredentials(),
     });
   });
 
@@ -93,6 +99,27 @@ setupDatabase().then(async (db) => {
   // ── Admin: list all users ──
   app.get('/api/users', async (req, res) => {
     try {
+      if (isFirestorePrimary()) {
+        const snapshot = await firestore.collection('users').get();
+        const users = snapshot.docs.map(doc => {
+          const user = doc.data();
+          return {
+            id: doc.id,
+            username: user.username,
+            email: user.email,
+            fullName: user.fullName,
+            avatar: user.avatar,
+            followers: user.followers || 0,
+            following: user.following || 0,
+            likes: user.likes || 0,
+            bio: user.bio || '',
+            isVerified: !!user.isVerified,
+            created_at: user.created_at,
+          };
+        }).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        return res.json(users);
+      }
+
       const users = await db.all('SELECT id, username, email, fullName, avatar, followers, following, likes, bio, isVerified FROM users ORDER BY rowid DESC');
       res.json(users);
     } catch (err) {
@@ -103,6 +130,10 @@ setupDatabase().then(async (db) => {
   // ── Admin: delete a user ──
   app.delete('/api/users/:id', async (req, res) => {
     try {
+      if (isFirestorePrimary()) {
+        await firestore.collection('users').doc(req.params.id).delete();
+        return res.json({ success: true });
+      }
       await db.run('DELETE FROM users WHERE id = ?', [req.params.id]);
       res.json({ success: true });
     } catch (err) {
@@ -113,6 +144,10 @@ setupDatabase().then(async (db) => {
   // ── Admin: delete a video ──
   app.delete('/api/videos/:id', async (req, res) => {
     try {
+      if (isFirestorePrimary()) {
+        await firestore.collection('videos').doc(req.params.id).delete();
+        return res.json({ success: true });
+      }
       await db.run('DELETE FROM videos WHERE id = ?', [req.params.id]);
       res.json({ success: true });
     } catch (err) {

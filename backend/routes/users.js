@@ -2,9 +2,10 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const cloudinary = require('../cloudinaryConfig');
-const { firestore, admin } = require('../firebaseConfig');
+const { cloudinary, isCloudinaryConfigured } = require('../cloudinaryConfig');
+const { firestore, admin, isFirestorePrimary } = require('../firebaseConfig');
 const { getUserId } = require('../authUtils');
+const { shouldUseCloudinary } = require('../runtimeConfig');
 
 const router = express.Router();
 
@@ -44,7 +45,7 @@ function toClientUser(user, isFollowing = false) {
 router.get('/:id', async (req, res) => {
   const db = req.db;
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const userDoc = await firestore.collection('users').doc(req.params.id).get();
       if (!userDoc.exists) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
@@ -82,7 +83,7 @@ router.put('/:id', async (req, res) => {
 
   const { bio, fullName, username } = req.body;
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const updates = {};
       if (bio !== undefined) updates.bio = bio;
       if (fullName !== undefined) updates.fullName = fullName;
@@ -110,7 +111,7 @@ router.post('/:id/follow', async (req, res) => {
   if (followerId === followingId) return res.status(400).json({ error: 'Impossible de se suivre soi-même' });
 
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const followId = `${followerId}_${followingId}`;
       const followRef = firestore.collection('follows').doc(followId);
       const followerRef = firestore.collection('users').doc(followerId);
@@ -153,7 +154,7 @@ router.post('/:id/unfollow', async (req, res) => {
   if (!followerId) return res.status(401).json({ error: 'Utilisateur non authentifié' });
 
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const followId = `${followerId}_${followingId}`;
       const followRef = firestore.collection('follows').doc(followId);
       const followerRef = firestore.collection('users').doc(followerId);
@@ -185,7 +186,7 @@ router.post('/:id/unfollow', async (req, res) => {
 router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {
   const db = req.db;
   const userId = getUserId(req, null);
-  const useCloudinary = req.body.useCloudinary === 'true' || process.env.FORCE_CLOUDINARY === 'true' || !!firestore;
+  const useCloudinary = shouldUseCloudinary(req, isFirestorePrimary());
 
   if (userId !== req.params.id) {
     return res.status(403).json({ error: 'Non autorisé' });
@@ -196,6 +197,10 @@ router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {
 
     let avatarUrl;
     if (useCloudinary) {
+      if (!isCloudinaryConfigured()) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        return res.status(500).json({ error: 'Cloudinary non configuré sur le serveur.' });
+      }
       console.log('Uploading avatar to Cloudinary...');
       const result = await cloudinary.uploader.upload(req.file.path, {
         folder: 'afrovibe/avatars',
@@ -210,7 +215,7 @@ router.post('/:id/avatar', uploadAvatar.single('avatar'), async (req, res) => {
       avatarUrl = `/uploads/avatars/${req.file.filename}`;
     }
 
-    if (firestore) {
+    if (isFirestorePrimary()) {
       await firestore.collection('users').doc(req.params.id).update({
         avatar: avatarUrl,
         updated_at: new Date().toISOString(),

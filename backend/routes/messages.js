@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { firestore } = require('../firebaseConfig');
+const { firestore, isFirestorePrimary } = require('../firebaseConfig');
 const { getUserId } = require('../authUtils');
 
 // Get messages between two users
@@ -12,7 +12,7 @@ router.get('/:otherUserId', async (req, res) => {
   if (!myId) return res.status(401).json({ error: 'Utilisateur non authentifié' });
 
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const snapshot = await firestore.collection('messages')
         .where('participants', 'array-contains', myId)
         .get();
@@ -53,7 +53,7 @@ router.post('/:receiverId', async (req, res) => {
   if (!text) return res.status(400).json({ error: 'Message text required' });
 
   try {
-    if (firestore) {
+    if (isFirestorePrimary()) {
       const messageRef = firestore.collection('messages').doc();
       await messageRef.set({
         id: messageRef.id,
