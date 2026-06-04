@@ -80,3 +80,4 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 supabase/.env
 
+google-services.json
