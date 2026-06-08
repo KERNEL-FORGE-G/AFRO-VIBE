@@ -17,6 +17,7 @@ import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import VideoPlayerView from '../components/VideoPlayerView';
 import apiService from '../services/apiService';
+import { MOCK_CHALLENGES } from '../services/mockData';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = (width - SPACING.lg * 2 - SPACING.md) / 2;
@@ -70,6 +71,24 @@ export const DiscoverScreen = ({ navigation }) => {
     }
     return true;
   });
+
+  const renderChallengeItem = (challenge) => (
+    <TouchableOpacity
+      key={challenge.id}
+      style={styles.challengeCard}
+      onPress={() => {
+        setActiveCategory('Défis');
+        setSearchQuery('');
+      }}
+    >
+      <View style={styles.challengeHeader}>
+        <Text style={styles.challengeTitle}>{challenge.title}</Text>
+        <Text style={styles.challengeViews}>{challenge.views}</Text>
+      </View>
+      <Text style={styles.challengeDescription}>{challenge.description}</Text>
+      <Text style={styles.challengeCount}>{challenge.videosCount}</Text>
+    </TouchableOpacity>
+  );
 
   const renderVideoGridItem = ({ item }) => (
     <TouchableOpacity 
@@ -166,14 +185,26 @@ export const DiscoverScreen = ({ navigation }) => {
                   <Text style={styles.bannerTitle}>DÉFIE TA CULTURE</Text>
                   <Text style={styles.bannerSubtitle}>Partage ton style, fais vibrer l’Afrique !</Text>
                   
-                  <TouchableOpacity style={styles.bannerBtn}>
+                  <TouchableOpacity
+                    style={styles.bannerBtn}
+                    onPress={() => navigation.navigate('Camera')}
+                  >
                     <Text style={styles.bannerBtnText}>Participer</Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
+              {activeCategory === 'Défis' && (
+                <View style={styles.challengesSection}>
+                  <Text style={styles.sectionTitle}>Défis actifs</Text>
+                  {MOCK_CHALLENGES.map(renderChallengeItem)}
+                </View>
+              )}
+
               {/* Sub-heading */}
-              <Text style={styles.sectionTitle}>Vibes Populaires</Text>
+              <Text style={styles.sectionTitle}>
+                {activeCategory === 'Défis' ? 'Vidéos du défi' : 'Vibes Populaires'}
+              </Text>
             </>
           }
         />
@@ -313,6 +344,46 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: SPACING.md,
+  },
+  challengesSection: {
+    marginBottom: SPACING.lg,
+  },
+  challengeCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 12,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  challengeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  challengeTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  challengeViews: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  challengeDescription: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  challengeCount: {
+    color: COLORS.primary,
+    fontSize: 11,
+    fontWeight: '600',
   },
   gridRow: {
     justifyContent: 'space-between',

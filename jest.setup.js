@@ -17,6 +17,43 @@ jest.mock('@notifee/react-native', () => ({
 jest.mock('react-native-video', () => 'Video');
 jest.mock('react-native-youtube-iframe', () => 'YouTube');
 jest.mock('react-native-webview', () => ({ WebView: 'WebView' }));
+jest.mock('firebase/app', () => ({ initializeApp: jest.fn(), getApps: jest.fn(() => []) }));
+jest.mock('firebase/auth', () => ({
+  initializeAuth: jest.fn(),
+  getAuth: jest.fn(),
+  getReactNativePersistence: jest.fn(),
+  createUserWithEmailAndPassword: jest.fn(),
+  signInWithEmailAndPassword: jest.fn(),
+  signInWithCredential: jest.fn(),
+  signOut: jest.fn(),
+  onAuthStateChanged: jest.fn((_, cb) => { cb(null); return jest.fn(); }),
+  GoogleAuthProvider: { credential: jest.fn() },
+  updateProfile: jest.fn(),
+}));
+jest.mock('firebase/firestore', () => ({
+  collection: jest.fn(),
+  doc: jest.fn(),
+  getDoc: jest.fn(),
+  getDocs: jest.fn(),
+  setDoc: jest.fn(),
+  addDoc: jest.fn(),
+  updateDoc: jest.fn(),
+  deleteDoc: jest.fn(),
+  query: jest.fn(),
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  increment: jest.fn(),
+  runTransaction: jest.fn(),
+  getFirestore: jest.fn(),
+}));
+jest.mock('@react-native-google-signin/google-signin', () => ({
+  GoogleSignin: {
+    configure: jest.fn(),
+    hasPlayServices: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+  },
+}));
 jest.mock('react-native-vision-camera', () => ({
   Camera: 'Camera',
   useCameraDevice: jest.fn(() => null),

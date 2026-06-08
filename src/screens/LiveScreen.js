@@ -1,5 +1,5 @@
 // Live Stream Screen (LIVE)
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -14,46 +14,23 @@ import {
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
-import { MOCK_LIVE_COMMENTS } from '../services/mockData';
+import { authService } from '../services/apiService';
 
 const { width, height } = Dimensions.get('window');
 
 export const LiveScreen = ({ navigation }) => {
-  const [comments, setComments] = useState(MOCK_LIVE_COMMENTS);
+  const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [hearts, setHearts] = useState([]);
   const listRef = useRef();
-
-  // Simulate scrolling live comments adding a new one every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomUser = ['Yao_99', 'Fatou_D', 'Galsen_Vibe', 'Naija_Boie', 'Mboa_Kid'][Math.floor(Math.random() * 5)];
-      const randomText = ['Force à toi ! 🔥', 'Le style est incroyable 🙌🏾', 'Quel talent ! 💯', 'Abonnez-vous !!', 'C’est fort ⚡🌍'][Math.floor(Math.random() * 5)];
-      
-      const newCommentObj = {
-        id: 'live_c_' + Date.now(),
-        username: randomUser,
-        message: randomText,
-      };
-
-      setComments(prev => [...prev, newCommentObj]);
-      
-      // Auto scroll to bottom
-      setTimeout(() => {
-        listRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-      
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const currentUser = authService.getCurrentUser();
 
   const handleSendComment = () => {
     if (!commentText.trim()) return;
     const userComment = {
       id: 'live_c_' + Date.now(),
-      username: 'Moi',
-      message: commentText,
+      username: currentUser?.username || 'Moi',
+      message: commentText.trim(),
     };
     setComments(prev => [...prev, userComment]);
     setCommentText('');
@@ -92,7 +69,7 @@ export const LiveScreen = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Live Video Mockup Background */}
+      {/* Live — simulation UI (streaming réel à intégrer via YouTube/Agora) */}
       <Image 
         source={require('../assets/images/logo_main.jpg')} // Fallback backdrop
         style={styles.backdrop}
@@ -106,7 +83,7 @@ export const LiveScreen = ({ navigation }) => {
           <Text style={styles.liveTag}>LIVE</Text>
           <View style={styles.viewersBadge}>
             <SVGIcon name="profile" size={10} color={COLORS.text} style={styles.profileBadgeIcon} />
-            <Text style={styles.viewersText}>2.5K</Text>
+            <Text style={styles.viewersText}>Démo</Text>
           </View>
         </View>
         
@@ -161,6 +138,11 @@ export const LiveScreen = ({ navigation }) => {
             renderItem={renderComment}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            ListEmptyComponent={
+              <Text style={styles.emptyLiveComments}>
+                Soyez le premier à commenter ce live !
+              </Text>
+            }
           />
         </View>
 
@@ -278,6 +260,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 12,
     flex: 1,
+  },
+  emptyLiveComments: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 40,
   },
   inputRow: {
     flexDirection: 'row',

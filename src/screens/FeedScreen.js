@@ -7,6 +7,7 @@ import {
   FlatList, 
   Dimensions, 
   TouchableOpacity, 
+  Pressable,
   Image, 
   Animated, 
   Easing,
@@ -78,11 +79,12 @@ export const FeedScreen = ({ route, navigation }) => {
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [pausedVideos, setPausedVideos] = useState(new Set());
+  const [userPaused, setUserPaused] = useState(false);
   
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
   const isReadyToScroll = useRef(false);
+  const lastTapRef = useRef(0);
 
   const initialVideoId = route?.params?.initialVideoId;
 
@@ -179,6 +181,10 @@ export const FeedScreen = ({ route, navigation }) => {
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    setUserPaused(false);
+  }, [currentVisibleIndex, activeVideoId]);
+
   const handleLike = async (videoId) => {
     try {
       await dbService.likeVideo(videoId);
@@ -205,6 +211,24 @@ export const FeedScreen = ({ route, navigation }) => {
       console.error('Like error:', err);
     }
   };
+
+  const handleVideoTap = useCallback((videoId) => {
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 280;
+
+    if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
+      lastTapRef.current = 0;
+      handleLike(videoId);
+      return;
+    }
+
+    lastTapRef.current = now;
+    setTimeout(() => {
+      if (lastTapRef.current !== now) return;
+      lastTapRef.current = 0;
+      setUserPaused((prev) => !prev);
+    }, DOUBLE_PRESS_DELAY);
+  }, [handleLike]);
 
   const handleShare = async (video) => {
     try {
@@ -240,21 +264,46 @@ export const FeedScreen = ({ route, navigation }) => {
     }
   };
 
-  const togglePause = (videoId) => {
-    setPausedVideos(prev => {
-      const next = new Set(prev);
-      if (next.has(videoId)) {
-        next.delete(videoId);
-      } else {
-        next.add(videoId);
-      }
-      return next;
-    });
-  };
+  const displayedVideos = React.useMemo(() => {
+    if (activeTab === 'abonnements') {
+      const myId = authService.getCurrentUser()?.uid;
+      return videos.filter(
+        (v) => v.user?.isFollowing || v.user?.uid === myId,
+      );
+    }
+    return videos;
+  }, [videos, activeTab]);
 
   const openComments = (videoId) => {
     setActiveVideoId(videoId);
     setCommentsVisible(true);
+  };
+
+  const handleBookmark = async (video) => {
+    try {
+      const result = await dbService.toggleBookmark(video.id);
+      setVideos(prev => prev.map(v =>
+        v.id === video.id ? { ...v, isBookmarked: result.bookmarked } : v,
+      ));
+      Alert.alert('Favoris', result.bookmarked ? 'Vidéo sauvegardée.' : 'Retirée des favoris.');
+    } catch (err) {
+      console.error('Bookmark error:', err);
+    }
+  };
+
+  const handleSaveOffline = async (video) => {
+    try {
+      await offlineService.saveVideoOffline({
+        id: video.id,
+        videoUri: video.videoUrl,
+        caption: video.caption,
+        category: video.category,
+        audioName: video.audioName,
+      });
+      Alert.alert('Hors ligne', 'Vidéo sauvegardée pour lecture hors ligne.');
+    } catch (err) {
+      console.error('Offline save error:', err);
+    }
   };
 
   const handleFollowCreator = async (creatorId) => {
@@ -277,22 +326,30 @@ export const FeedScreen = ({ route, navigation }) => {
 
   const renderVideoItem = ({ item, index }) => {
     const isPlaying = isFocused && index === currentVisibleIndex;
-    const isManuallyPaused = pausedVideos.has(item.id);
+    const isCurrentItem = index === currentVisibleIndex;
+    const forcePaused = !isPlaying || commentsVisible || (isCurrentItem && userPaused);
+    const canTapVideo = isCurrentItem && isFocused && !commentsVisible;
     
     return (
       <View style={styles.videoContainer}>
-        {/* Fullscreen Video Player */}
         <VideoPlayerView 
           videoUrl={item.videoUrl} 
-          paused={!isPlaying || commentsVisible || isManuallyPaused} 
+          paused={forcePaused} 
           thumbnail={item.thumbnail}
-          onSingleTap={() => togglePause(item.id)}
-          onDoubleTap={() => handleLike(item.id)}
-          showStaticPlay={isManuallyPaused}
+          enableTapControls={false}
+          showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
         />
 
-        {/* Bottom Overlay Info */}
-        <View style={styles.bottomInfoContainer}>
+        {canTapVideo && (
+          <Pressable
+            style={styles.tapOverlay}
+            onPress={() => handleVideoTap(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={userPaused ? 'Lire la vidéo' : 'Mettre en pause'}
+          />
+        )}
+
+        <View style={styles.bottomInfoContainer} pointerEvents="box-none">
           <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
             <Text style={styles.username}>@{item.user.username}</Text>
           </TouchableOpacity>
@@ -307,8 +364,7 @@ export const FeedScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Right Side Buttons Panel */}
-        <View style={styles.rightButtonsPanel}>
+        <View style={styles.rightButtonsPanel} pointerEvents="box-none">
           {/* Creator Profile Bubble */}
           <View style={styles.avatarContainer}>
             <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
@@ -358,8 +414,28 @@ export const FeedScreen = ({ route, navigation }) => {
             <Text style={styles.actionText}>{item.shares}</Text>
           </TouchableOpacity>
 
+          {/* Bookmark Button */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleBookmark(item)}
+          >
+            <SVGIcon
+              name="inbox"
+              size={30}
+              color={item.isBookmarked ? COLORS.accent : COLORS.text}
+            />
+          </TouchableOpacity>
+
+          {/* Save Offline Button */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleSaveOffline(item)}
+          >
+            <SVGIcon name="settings" size={28} color={COLORS.text} />
+          </TouchableOpacity>
+
           {/* Rotating Vinyl Record */}
-          <SpinVinyl isPlaying={isPlaying && !commentsVisible} />
+          <SpinVinyl isPlaying={isPlaying && !commentsVisible && !(isCurrentItem && userPaused)} />
         </View>
       </View>
     );
@@ -396,10 +472,10 @@ export const FeedScreen = ({ route, navigation }) => {
           flatListRef.current = ref;
           if (ref) isReadyToScroll.current = true;
         }}
-        data={videos}
+        data={displayedVideos}
         renderItem={renderVideoItem}
         keyExtractor={item => item.id}
-        extraData={[currentVisibleIndex, pausedVideos, commentsVisible, isFocused]}
+        extraData={`${currentVisibleIndex}-${commentsVisible}-${isFocused}-${activeTab}-${displayedVideos.length}-${userPaused}`}
         pagingEnabled={true}
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
@@ -419,6 +495,15 @@ export const FeedScreen = ({ route, navigation }) => {
             onRefresh={onRefresh}
             tintColor={COLORS.accent}
           />
+        }
+        ListEmptyComponent={
+          activeTab === 'abonnements' ? (
+            <View style={styles.emptyFeed}>
+              <Text style={styles.emptyFeedText}>
+                Abonnez-vous à des créateurs pour voir leurs vidéos ici.
+              </Text>
+            </View>
+          ) : null
         }
       />
 
@@ -465,9 +550,28 @@ const styles = StyleSheet.create({
   feedList: {
     flex: 1,
   },
+  emptyFeed: {
+    height: FEED_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  emptyFeedText: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   videoContainer: {
     width: width,
     height: FEED_HEIGHT,
+  },
+  videoTapArea: {
+    flex: 1,
+  },
+  tapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
   },
   pauseOverlay: {
     position: 'absolute',

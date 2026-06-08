@@ -181,14 +181,41 @@ export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
     case 'adinkra1': // Gye Nyame symbol (represents supremacy of God, stylized)
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-          <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5.67-1.5 1.5-1.5 1.5.67 1.5 1.5zm-1-4.5c0-.55.45-1 1-1h1c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-3v2h3v1h-1c-1.66 0-3 1.34-3 3v2h2v-2z" fill={color} />
+          {/* Central Pillar */}
+          <Rect x="11.2" y="2" width="1.6" height="20" rx="0.8" fill={color} />
+          {/* Left Wing and Spikes */}
+          <Path d="M11.2 5.5 C8 5.5, 6 7.5, 6 12 C6 16.5, 8 18.5, 11.2 18.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+          <Path d="M6 12 H3.5 M6.3 9.5 L4.3 8.3 M6.3 14.5 L4.3 15.7" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+          {/* Right Wing and Spikes */}
+          <Path d="M12.8 5.5 C16 5.5, 18 7.5, 18 12 C18 16.5, 16 18.5, 12.8 18.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+          <Path d="M18 12 H20.5 M17.7 9.5 L19.7 8.3 M17.7 14.5 L19.7 15.7" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+          {/* Center Swirls */}
+          <Path d="M12 8.5 A1.5 1.5 0 1 1 12 11.5 A1.5 1.5 0 1 1 12 8.5" fill="none" stroke={color} strokeWidth="1.2" />
+          <Path d="M12 12.5 A1.5 1.5 0 1 1 12 15.5 A1.5 1.5 0 1 1 12 12.5" fill="none" stroke={color} strokeWidth="1.2" />
         </Svg>
       );
 
     case 'adinkra2': // Dwennimmen symbol (ram's horns - strength and humility, stylized)
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-          <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.66 0 3 1.34 3 3 0 1.09-.59 2.04-1.47 2.58l-1.03.62c-.31.18-.5.52-.5.88v1.42h-2v-1.42c0-.36-.19-.7-.5-.88l-1.03-.62C8.59 11.04 8 10.09 8 9c0-1.66 1.34-3 3-3zm0 11.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" fill={color} />
+          {/* Left Horn Spiral */}
+          <Path d="M12 18 C9 18, 6.5 16, 6.5 12.5 C6.5 9, 8.5 7, 11 7 C13 7, 14.5 8.5, 14.5 10 C14.5 11.5, 13.5 12.5, 12 12.5 C11 12.5, 10.5 12, 10.5 11" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+          {/* Right Horn Spiral */}
+          <Path d="M12 18 C15 18, 17.5 16, 17.5 12.5 C17.5 9, 15.5 7, 13 7 C11 7, 9.5 8.5, 9.5 10 C9.5 11.5, 10.5 12.5, 12 12.5 C13 12.5, 13.5 12, 13.5 11" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+        </Svg>
+      );
+
+    case 'edit':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill={color} />
+        </Svg>
+      );
+
+    case 'send':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill={color} />
         </Svg>
       );
 

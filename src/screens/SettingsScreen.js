@@ -12,7 +12,9 @@ import { configService, authService } from '../services/apiService';
 const SettingsScreen = ({ navigation }) => {
   const [darkMode, setDarkMode] = useState(true);
   const [storageMode, setStorageMode] = useState(configService.getStorageMode());
-  const [serverIp, setServerIp] = useState(configService.getApiUrl());
+  const [serverIp, setServerIp] = useState(
+    storageMode === 'online' ? '' : configService.getApiUrl(),
+  );
   const [isTesting, setIsTesting] = useState(false);
   const currentUser = authService.getCurrentUser();
 
@@ -97,23 +99,36 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.syncBtn} onPress={handleSync}>
-          <Text style={styles.syncBtnText}>☁️ Synchroniser avec le Cloud</Text>
-        </TouchableOpacity>
+        {storageMode === 'offline' && (
+          <>
+            <TouchableOpacity style={styles.syncBtn} onPress={handleSync}>
+              <Text style={styles.syncBtnText}>☁️ Synchroniser avec le Cloud</Text>
+            </TouchableOpacity>
 
-        <Text style={styles.sectionHeader}>Configuration Serveur Local</Text>
-        <View style={styles.serverConfigContainer}>
-          <TextInput
-            style={styles.serverConfigInput}
-            value={serverIp}
-            onChangeText={setServerIp}
-            placeholder="http://192.168.x.x:3000/api"
-            placeholderTextColor={COLORS.textSecondary}
-          />
-          <TouchableOpacity style={styles.testBtn} onPress={handleTestConnection}>
-            <Text style={styles.testBtnText}>Tester et sauvegarder</Text>
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.sectionHeader}>Configuration Serveur Local</Text>
+            <View style={styles.serverConfigContainer}>
+              <TextInput
+                style={styles.serverConfigInput}
+                value={serverIp}
+                onChangeText={setServerIp}
+                placeholder="http://192.168.x.x:3000/api"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+              <TouchableOpacity style={styles.testBtn} onPress={handleTestConnection} disabled={isTesting}>
+                <Text style={styles.testBtnText}>
+                  {isTesting ? 'Test en cours...' : 'Tester et sauvegarder'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {storageMode === 'online' && (
+          <Text style={styles.infoText}>
+            Mode en ligne : Firebase + Cloudinary directement depuis l'app.
+            Configurez src/config/env.js avec vos clés.
+          </Text>
+        )}
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>Déconnexion</Text>
@@ -144,6 +159,7 @@ const styles = StyleSheet.create({
   testBtnText: { color: COLORS.text, fontWeight: 'bold' },
   logoutBtn: { marginTop: SPACING.xl, backgroundColor: 'rgba(230, 0, 103, 0.1)', paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
   logoutBtnText: { color: COLORS.secondary, fontWeight: 'bold' },
+  infoText: { color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, marginTop: SPACING.md },
 });
 
 export default SettingsScreen;

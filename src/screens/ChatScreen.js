@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
-import apiService from '../services/apiService';
+import apiService, { authService } from '../services/apiService';
 
 export const ChatScreen = () => {
   const navigation = useNavigation();
@@ -25,43 +25,42 @@ export const ChatScreen = () => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const flatListRef = useRef();
 
   const otherUserId = otherUser.uid || otherUser.id;
 
-  const loadMessages = useCallback(async () => {
-    try {
-      const data = await apiService.db.getMessages(otherUserId);
+  useEffect(() => {
+    const unsubscribe = apiService.db.subscribeToMessages(otherUserId, (data) => {
       setMessages(data);
-    } catch (err) {
-      console.error('Error loading messages:', err);
-    } finally {
       setLoading(false);
-    }
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
   }, [otherUserId]);
 
-  useEffect(() => {
-    loadMessages();
-    const interval = setInterval(loadMessages, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
-  }, [loadMessages]);
-
   const handleSend = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || sending) return;
 
     const textToSend = inputText.trim();
     setInputText('');
+    setSending(true);
 
     try {
       await apiService.db.sendMessage(otherUserId, textToSend);
-      loadMessages();
     } catch (err) {
       console.error('Error sending message:', err);
+      setInputText(textToSend);
+    } finally {
+      setSending(false);
     }
   };
 
   const renderMessageItem = ({ item }) => {
-    const isMine = item.sender_id !== (otherUser.uid || otherUser.id);
+    const currentUserId = authService.getCurrentUser()?.uid;
+    const isMine = item.sender_id === currentUserId;
     
     return (
       <View style={[
@@ -83,10 +82,9 @@ export const ChatScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <SVGIcon name="adinkra1" size={24} color={COLORS.text} />
+          <SVGIcon name="back" size={24} color={COLORS.text} />
         </TouchableOpacity>
         
         <View style={styles.headerUser}>
@@ -96,7 +94,7 @@ export const ChatScreen = () => {
           />
           <View>
             <Text style={styles.headerUsername}>{otherUser.username}</Text>
-            <Text style={styles.headerStatus}>En ligne</Text>
+            <Text style={styles.headerStatus}>Messagerie</Text>
           </View>
         </View>
 
@@ -105,7 +103,6 @@ export const ChatScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Messages List */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.chatContainer}
@@ -122,11 +119,17 @@ export const ChatScreen = () => {
             keyExtractor={item => item.id}
             renderItem={renderMessageItem}
             contentContainerStyle={styles.messagesList}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            ListEmptyComponent={
+              <View style={styles.emptyChat}>
+                <Text style={styles.emptyChatText}>
+                  Envoyez le premier message à @{otherUser.username}
+                </Text>
+              </View>
+            }
           />
         )}
 
-        {/* Input Area */}
         <View style={styles.inputArea}>
           <TouchableOpacity style={styles.attachBtn}>
             <SVGIcon name="edit" size={20} color={COLORS.textSecondary} />
@@ -142,11 +145,11 @@ export const ChatScreen = () => {
           />
           
           <TouchableOpacity 
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} 
+            style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]} 
             onPress={handleSend}
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || sending}
           >
-            <SVGIcon name="verified" size={20} color={inputText.trim() ? COLORS.primary : COLORS.textSecondary} />
+            <SVGIcon name="send" size={20} color={inputText.trim() && !sending ? COLORS.primary : COLORS.textSecondary} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   headerStatus: {
-    color: COLORS.success,
+    color: COLORS.textSecondary,
     fontSize: 12,
   },
   headerAction: {
@@ -202,9 +205,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  emptyChat: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 80,
+  },
+  emptyChatText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+  },
   messagesList: {
     padding: SPACING.md,
     paddingBottom: SPACING.lg,
+    flexGrow: 1,
   },
   messageBubble: {
     maxWidth: '80%',

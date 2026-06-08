@@ -21,6 +21,7 @@ import VideoPlayerView from '../components/VideoPlayerView';
 import { authService, dbService, configService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
+import { resolveMediaUri } from '../utils/mediaUri';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = width / 3 - 2;
@@ -67,11 +68,16 @@ export const ProfileScreen = ({ navigation, route }) => {
       setEditBioValue(userDetails?.bio || 'Afro Vibe Creator');
       setIsFollowing(!!userDetails?.isFollowing);
 
-      // Load all videos
-      const allVideos = await dbService.getVideos();
-      // Filter for this specific user
-      const filteredVideos = allVideos.filter(v => v.user.uid === uidToShow);
-      setMyVideos(filteredVideos);
+      let tabVideos = [];
+      if (activeTab === 'liked') {
+        tabVideos = await dbService.getLikedVideos(uidToShow);
+      } else if (activeTab === 'bookmarks') {
+        tabVideos = await dbService.getBookmarkedVideos(uidToShow);
+      } else {
+        const allVideos = await dbService.getVideos();
+        tabVideos = allVideos.filter(v => v.user.uid === uidToShow);
+      }
+      setMyVideos(tabVideos);
     } catch (err) {
       console.error('Profile load error:', err);
       // Fallback to local user if server fails and it's own profile
@@ -90,7 +96,7 @@ export const ProfileScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
-  }, [navigation, targetUserId, currentUser, isOwnProfile]);
+  }, [navigation, targetUserId, currentUser, isOwnProfile, activeTab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -147,16 +153,15 @@ export const ProfileScreen = ({ navigation, route }) => {
   const handleAvatarPick = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
     if (result.didCancel || !result.assets || result.assets.length === 0) return;
-    
+
     setLoading(true);
     try {
       const sourceUri = result.assets[0].uri;
       const fileName = `avatar_${Date.now()}.jpg`;
-      
-      // 1. Sauvegarde locale sur le téléphone dans "AFRO-SOUND"
       const destDir = `${RNFS.ExternalDirectoryPath}/AFRO-SOUND`;
       const destPath = `${destDir}/${fileName}`;
-      
+
+      let uploadUri = sourceUri;
       try {
         const exists = await RNFS.exists(destDir);
         if (!exists) {
@@ -164,20 +169,18 @@ export const ProfileScreen = ({ navigation, route }) => {
         }
         await RNFS.copyFile(sourceUri, destPath);
         console.log('Avatar sauvegardé localement dans AFRO-SOUND:', destPath);
+        uploadUri = await resolveMediaUri(`file://${destPath}`, 'jpg');
       } catch (fsErr) {
-        console.warn('Erreur lors de la sauvegarde locale (AFRO-SOUND):', fsErr);
-        // On continue quand même l'upload même si la copie locale échoue
+        console.warn('Erreur sauvegarde locale, upload direct:', fsErr);
+        uploadUri = await resolveMediaUri(sourceUri, 'jpg');
       }
 
-      // 2. Upload vers le backend (qui gère ensuite Cloudinary si configuré)
-      const res = await dbService.uploadAvatar(sourceUri);
-      
-      // Update profile with new avatar (res already has fixed URL from dbService)
-      setProfile(prev => ({ ...prev, avatar: res.avatarUrl }));
-      Alert.alert('Succès', 'Avatar mis à jour et sauvegardé !');
+      const res = await dbService.uploadAvatar(uploadUri);
+      setProfile((prev) => ({ ...prev, avatar: res.avatarUrl }));
+      Alert.alert('Succès', 'Avatar mis à jour !');
     } catch (err) {
       console.error('Avatar process error:', err);
-      Alert.alert('Erreur', 'Impossible de mettre à jour l\'avatar.');
+      Alert.alert('Erreur', err.message || 'Impossible de mettre à jour l\'avatar.');
     } finally {
       setLoading(false);
     }

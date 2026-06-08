@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   btnSecondary: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: COLORS.border,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   btnTextPrimary: {
     fontSize: 16,

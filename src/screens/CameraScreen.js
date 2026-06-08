@@ -1,22 +1,27 @@
 // Camera & Publication Screen (Plus)
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   ActivityIndicator,
   Dimensions,
   StatusBar,
   Alert,
-  AppState
+  AppState,
 } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  useVideoOutput,
+} from 'react-native-vision-camera';
 import { useIsFocused } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
-import { dbService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
 
 const { width } = Dimensions.get('window');
@@ -27,73 +32,100 @@ export const CameraScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState('off');
   const [cameraType, setCameraType] = useState('back');
-  
+
   const camera = useRef(null);
+  const recorderRef = useRef(null);
 
   const isFocused = useIsFocused();
   const [appState, setAppState] = useState(AppState.currentState);
-  
+
   const device = useCameraDevice(cameraType);
-  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
-  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } =
+    useCameraPermission();
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
+
+  const videoOutput = useVideoOutput({ enableAudio: hasMicPermission });
 
   const speeds = ['0.3x', '0.5x', '1x', '2x', '3x'];
 
-  const isCameraActive = isFocused && appState === 'active' && hasCameraPermission && hasMicPermission;
+  const isCameraActive =
+    isFocused && appState === 'active' && hasCameraPermission && hasMicPermission && !!device;
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', setAppState);
+    return () => subscription.remove();
+  }, []);
 
+  useEffect(() => {
+    return () => {
+      recorderRef.current = null;
+    };
+  }, []);
 
   const handleRecord = async () => {
     if (recording) {
-      if (camera.current) {
-        await camera.current.stopRecording();
-      }
-      setRecording(false);
-    } else {
       try {
-        if (!camera.current) {
-          console.error('Camera ref is null');
-          return;
+        if (recorderRef.current) {
+          await recorderRef.current.stopRecording();
         }
-        setRecording(true);
-        
-        camera.current.startRecording({
-          flash: flash === 'on' ? 'on' : 'off',
-          onRecordingFinished: (video) => {
-            console.log('Recording finished:', video.path);
-            setRecording(false);
-            setLoading(false);
-            navigation.navigate('VideoEdit', { videoUri: video.path });
-          },
-          onRecordingError: (error) => {
-            console.error('Recording error:', error);
-            setRecording(false);
-            setLoading(false);
-            Alert.alert('Erreur', 'L\'enregistrement s\'est arrêté.');
-          }
-        });
       } catch (e) {
-        console.error('Start recording error:', e);
+        console.error('Stop recording error:', e);
+        Alert.alert('Erreur', 'Impossible d\'arrêter l\'enregistrement.');
+      } finally {
         setRecording(false);
-        setLoading(false);
       }
+      return;
+    }
+
+    try {
+      if (!videoOutput) {
+        Alert.alert('Erreur', 'La caméra n\'est pas prête pour l\'enregistrement.');
+        return;
+      }
+
+      setRecording(true);
+      const recorder = await videoOutput.createRecorder({});
+      recorderRef.current = recorder;
+
+      await recorder.startRecording(
+        (filePath) => {
+          console.log('Recording finished:', filePath);
+          setRecording(false);
+          setLoading(false);
+          recorderRef.current = null;
+          const videoUri = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
+          navigation.navigate('VideoEdit', { videoUri });
+        },
+        (error) => {
+          console.error('Recording error:', error);
+          setRecording(false);
+          setLoading(false);
+          recorderRef.current = null;
+          Alert.alert('Erreur', 'L\'enregistrement s\'est arrêté.');
+        },
+      );
+    } catch (e) {
+      console.error('Start recording error:', e);
+      setRecording(false);
+      setLoading(false);
+      recorderRef.current = null;
+      Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement.');
     }
   };
 
   const handleUpload = async () => {
     try {
-      const result = await launchImageLibrary({ 
+      const result = await launchImageLibrary({
         mediaType: 'video',
         quality: 0.8,
-        selectionLimit: 1
+        selectionLimit: 1,
       });
-      
+
       if (result.didCancel || !result.assets || result.assets.length === 0) return;
-      
+
       const videoUri = result.assets[0].uri;
       console.log('File selected for upload:', videoUri);
-      
-      // Navigate to edit screen instead of immediate upload
       navigation.navigate('VideoEdit', { videoUri });
     } catch (err) {
       console.error('Upload error:', err);
@@ -103,24 +135,29 @@ export const CameraScreen = ({ navigation }) => {
   };
 
   const toggleCamera = () => {
-    setCameraType(prev => prev === 'back' ? 'front' : 'back');
+    setCameraType((prev) => (prev === 'back' ? 'front' : 'back'));
   };
 
   const toggleFlash = () => {
-    setFlash(prev => prev === 'off' ? 'on' : 'off');
+    setFlash((prev) => (prev === 'off' ? 'on' : 'off'));
   };
 
   if (!hasCameraPermission || !hasMicPermission) {
     return (
       <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>L'accès à la caméra et au microphone est requis pour cette fonctionnalité.</Text>
+        <Text style={styles.permissionText}>
+          L'accès à la caméra et au microphone est requis pour cette fonctionnalité.
+        </Text>
         {!hasCameraPermission && (
           <TouchableOpacity style={styles.permissionBtn} onPress={requestCameraPermission}>
             <Text style={styles.permissionBtnText}>Autoriser la caméra</Text>
           </TouchableOpacity>
         )}
         {!hasMicPermission && (
-          <TouchableOpacity style={[styles.permissionBtn, {marginTop: 10}]} onPress={requestMicPermission}>
+          <TouchableOpacity
+            style={[styles.permissionBtn, { marginTop: 10 }]}
+            onPress={requestMicPermission}
+          >
             <Text style={styles.permissionBtnText}>Autoriser le micro</Text>
           </TouchableOpacity>
         )}
@@ -142,21 +179,18 @@ export const CameraScreen = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <TribalPattern position="top" height={10} />
 
-      {/* Main Camera HUD View */}
       <View style={styles.cameraView}>
-        {/* Real Camera Preview */}
         {isCameraActive && (
           <Camera
             ref={camera}
             style={StyleSheet.absoluteFill}
             device={device}
+            outputs={[videoOutput]}
             isActive={true}
-            video={true}
-            audio={hasMicPermission}
+            torchMode={flash === 'on' ? 'on' : 'off'}
           />
         )}
 
-        {/* Top Controls Overlay */}
         <View style={styles.topControlOverlay}>
           <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Accueil')}>
             <SVGIcon name="close" size={24} color={COLORS.text} />
@@ -169,13 +203,12 @@ export const CameraScreen = ({ navigation }) => {
           <View style={styles.flexEmpty} />
         </View>
 
-        {/* Right side controls panel */}
         <View style={styles.rightSideControls}>
           <TouchableOpacity style={styles.hudControl} onPress={toggleCamera}>
             <SVGIcon name="settings" size={24} color={COLORS.text} />
             <Text style={styles.hudLabel}>Retourner</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.hudControl}>
             <SVGIcon name="speed" size={24} color={COLORS.text} />
             <Text style={styles.hudLabel}>Vitesse</Text>
@@ -197,7 +230,6 @@ export const CameraScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Center Loading */}
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={COLORS.primary} />
@@ -205,30 +237,23 @@ export const CameraScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Bottom Recording Control Board */}
         <View style={styles.bottomControlBoard}>
-          
-          {/* Speed Selector */}
           <View style={styles.speedSelectorContainer}>
-            {speeds.map(s => {
+            {speeds.map((s) => {
               const isActive = s === speed;
               return (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={s}
                   style={[styles.speedOption, isActive && styles.speedOptionActive]}
                   onPress={() => setSpeed(s)}
                 >
-                  <Text style={[styles.speedText, isActive && styles.speedTextActive]}>
-                    {s}
-                  </Text>
+                  <Text style={[styles.speedText, isActive && styles.speedTextActive]}>{s}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          {/* Record Row */}
           <View style={styles.recordRow}>
-            {/* Effects Button */}
             <TouchableOpacity style={styles.accessoryBtn}>
               <View style={styles.effectIconWrapper}>
                 <SVGIcon name="adinkra1" size={20} color={COLORS.accent} />
@@ -236,22 +261,14 @@ export const CameraScreen = ({ navigation }) => {
               <Text style={styles.accessoryText}>Effets</Text>
             </TouchableOpacity>
 
-            {/* Main Red Circle Record Button */}
-            <TouchableOpacity 
-              style={[
-                styles.recordBtnOuter,
-                recording && styles.recordBtnOuterActive
-              ]}
+            <TouchableOpacity
+              style={[styles.recordBtnOuter, recording && styles.recordBtnOuterActive]}
               onPress={handleRecord}
               disabled={loading}
             >
-              <View style={[
-                styles.recordBtnInner,
-                recording && styles.recordBtnInnerActive
-              ]} />
+              <View style={[styles.recordBtnInner, recording && styles.recordBtnInnerActive]} />
             </TouchableOpacity>
 
-            {/* Upload Gallery Button */}
             <TouchableOpacity style={styles.accessoryBtn} onPress={handleUpload}>
               <View style={styles.uploadIconWrapper}>
                 <SVGIcon name="share" size={20} color={COLORS.text} />
@@ -260,7 +277,6 @@ export const CameraScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Bottom Tabs Selection */}
           <View style={styles.cameraModesContainer}>
             <Text style={styles.modeTextActive}>Appareil</Text>
             <Text style={styles.modeText}>Modèles</Text>
@@ -315,7 +331,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   flexEmpty: {
-    width: 32, // Balance for back button
+    width: 32,
   },
   rightSideControls: {
     position: 'absolute',
@@ -431,7 +447,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: COLORS.secondary, // red/pink indicator
+    backgroundColor: COLORS.secondary,
   },
   recordBtnInnerActive: {
     transform: [{ scale: 0.8 }],

@@ -14,6 +14,7 @@ export const COLORS = {
   liveBadge: '#FF0055',      // Live indicator neon pink
   black: '#000000',
   glass: 'rgba(31, 14, 49, 0.7)',
+  blue: '#00B0FF',           // Vivid blue (used for verify/sync)
 };
 
 export const GRADIENTS = {

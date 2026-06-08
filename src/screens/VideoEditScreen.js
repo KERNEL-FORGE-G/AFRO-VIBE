@@ -18,13 +18,14 @@ export const VideoEditScreen = ({ route, navigation }) => {
     }
     setLoading(true);
     try {
+      console.log('[Upload] Publication vidéo:', videoUri);
       await dbService.uploadVideo(videoUri, caption, category);
-      setLoading(false);
       Alert.alert('Succès', 'Vidéo publiée avec succès !');
       navigation.navigate('MainTabs', { screen: 'Accueil' });
     } catch (err) {
-      console.error(err);
-      Alert.alert('Erreur', 'La publication a échoué.');
+      console.error('[Upload] Erreur publication:', err);
+      Alert.alert('Erreur', err.message || 'La publication a échoué.');
+    } finally {
       setLoading(false);
     }
   };
