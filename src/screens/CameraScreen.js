@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   AppState,
+  Animated
 } from 'react-native';
 import {
   Camera,
@@ -32,6 +33,15 @@ export const CameraScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState('off');
   const [cameraType, setCameraType] = useState('back');
+  const entranceAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(entranceAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [entranceAnim]);
 
   const camera = useRef(null);
   const recorderRef = useRef(null);
@@ -203,7 +213,7 @@ export const CameraScreen = ({ navigation }) => {
           <View style={styles.flexEmpty} />
         </View>
 
-        <View style={styles.rightSideControls}>
+        <Animated.View style={[styles.rightSideControls, { opacity: entranceAnim, transform: [{ translateX: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }]}>
           <TouchableOpacity style={styles.hudControl} onPress={toggleCamera}>
             <SVGIcon name="settings" size={24} color={COLORS.text} />
             <Text style={styles.hudLabel}>Retourner</Text>
@@ -228,7 +238,7 @@ export const CameraScreen = ({ navigation }) => {
             <SVGIcon name="flash" size={24} color={flash === 'on' ? COLORS.accent : COLORS.text} />
             <Text style={styles.hudLabel}>Flash</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         {loading && (
           <View style={styles.loadingOverlay}>

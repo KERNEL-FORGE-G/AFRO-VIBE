@@ -10,7 +10,8 @@ import {
   KeyboardAvoidingView, 
   Platform,
   Dimensions,
-  StatusBar
+  StatusBar,
+  Animated
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
@@ -43,9 +44,19 @@ export const LoginScreen = ({ navigation }) => {
     }
   };
 
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(30)).current;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 20, friction: 7, useNativeDriver: true })
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <StatusBar, barStyle="light-content" backgroundColor={COLORS.background} />
       <TribalPattern position="top" height={15} />
 
       <KeyboardAvoidingView
@@ -153,7 +164,7 @@ export const LoginScreen = ({ navigation }) => {
       </KeyboardAvoidingView>
 
       <TribalPattern position="bottom" height={15} />
-    </View>
+    </Animated.View>
   );
 };
 

@@ -39,6 +39,9 @@ export const VideoPlayerView = ({
   const isPaused = forcePaused || userPaused;
 
   useEffect(() => {
+    // If the component is force-paused from outside (e.g., screen lost focus or comment sheet opened),
+    // we reset the local userPaused state to false, so that when it's unpaused from outside,
+    // it starts playing immediately.
     if (forcePaused && !wasForcePaused.current) {
       setUserPaused(false);
     }
@@ -106,8 +109,8 @@ export const VideoPlayerView = ({
           triggerPauseAnim(next);
           return next;
         });
+        onSingleTap?.();
       }
-      onSingleTap?.();
     }, DOUBLE_PRESS_DELAY);
   }, [forcePaused, heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
 
@@ -166,6 +169,13 @@ export const VideoPlayerView = ({
             setLoading(false);
           }}
           ignoreSilentSwitch="obey"
+          bufferConfig={{
+            minBufferMs: 1500,
+            maxBufferMs: 5000,
+            bufferForPlaybackMs: 1000,
+            bufferForPlaybackAfterRebufferMs: 2000,
+          }}
+          progressUpdateInterval={250.0}
         />
       )}
 

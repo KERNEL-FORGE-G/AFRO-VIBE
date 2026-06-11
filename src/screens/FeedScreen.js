@@ -1,20 +1,21 @@
 // Home Feed Screen (Accueil)
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Dimensions, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  TouchableOpacity,
   Pressable,
-  Image, 
-  Animated, 
+  Image,
+  Animated,
   Easing,
   StatusBar,
   RefreshControl,
   Share,
-  Alert
+  Alert,
+  LayoutAnimation
 } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
@@ -30,7 +31,7 @@ const BOTTOM_BAR_HEIGHT = 60; // Approximate bottom tab bar height
 const FEED_HEIGHT = height - BOTTOM_BAR_HEIGHT;
 const VIDEO_CACHE_KEY = 'AFROVIBE_FEED_CACHE';
 
-// Spin animation for vinyl disk - Moved outside for stability
+// Spin animation for vinyl disk
 const SpinVinyl = memo(({ isPlaying }) => {
   const spinValue = useRef(new Animated.Value(0)).current;
 
@@ -62,25 +63,184 @@ const SpinVinyl = memo(({ isPlaying }) => {
   return (
     <Animated.View style={[styles.vinylOuter, { transform: [{ rotate: spin }] }]}>
       <View style={styles.vinylInner}>
-        <Image 
-          source={require('../assets/images/logo.jpg')} 
-          style={styles.vinylCenter} 
+        <Image
+          source={require('../assets/images/logo.jpg')}
+          style={styles.vinylCenter}
         />
       </View>
     </Animated.View>
   );
 });
 
+const VideoItem = memo(({
+  item,
+  index,
+  isFocused,
+  currentVisibleIndex,
+  commentsVisible,
+  userPaused,
+  handleVideoTap,
+  navigation,
+  handleFollowCreator,
+  handleLike,
+  openComments,
+  handleShare,
+  handleBookmark,
+  handleSaveOffline
+}) => {
+  const isPlaying = isFocused && index === currentVisibleIndex;
+  const isCurrentItem = index === currentVisibleIndex;
+  const forcePaused = !isPlaying || commentsVisible || (isCurrentItem && userPaused);
+  const canTapVideo = isCurrentItem && isFocused && !commentsVisible;
+
+  const animValue = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (isCurrentItem) {
+      animValue.setValue(0);
+      Animated.spring(animValue, {
+        toValue: 1,
+        tension: 20,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isCurrentItem, animValue]);
+
+  const slideAnim = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [50, 0],
+  });
+
+  const opacityAnim = animValue.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0, 0, 1],
+  });
+
+  return (
+    <View style={styles.videoContainer}>
+      <VideoPlayerView
+        videoUrl={item.videoUrl}
+        paused={forcePaused}
+        thumbnail={item.thumbnail}
+        enableTapControls={false}
+        showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
+      />
+
+      {canTapVideo && (
+        <Pressable
+          style={styles.tapOverlay}
+          onPress={() => handleVideoTap(item.id)}
+          accessibilityRole="button"
+          accessibilityLabel={userPaused ? 'Lire la vidéo' : 'Mettre en pause'}
+        />
+      )}
+
+      <Animated.View
+        style={[
+          styles.bottomInfoContainer,
+          { opacity: opacityAnim, transform: [{ translateY: slideAnim }] }
+        ]}
+        pointerEvents="box-none"
+      >
+        <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
+          <Text style={styles.username}>@{item.user.username}</Text>
+        </TouchableOpacity>
+        {item.user.isVerified && (
+          <SVGIcon name="verified" size={14} style={styles.verifiedIcon} />
+        )}
+        <Text style={styles.caption} numberOfLines={3}>{item.caption}</Text>
+
+        <View style={styles.musicContainer}>
+          <SVGIcon name="music" size={14} color={COLORS.text} style={styles.musicIcon} />
+          <Text style={styles.musicText} numberOfLines={1}>{item.audioName}</Text>
+        </View>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.rightButtonsPanel,
+          { opacity: opacityAnim, transform: [{ translateX: slideAnim }] }
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.avatarContainer}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
+            <Image
+              source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
+              style={styles.creatorAvatar}
+            />
+          </TouchableOpacity>
+          {!item.user.isFollowing && item.user.uid !== authService.getCurrentUser()?.uid && (
+            <TouchableOpacity
+              style={styles.followBtn}
+              onPress={() => handleFollowCreator(item.user.uid)}
+            >
+              <Text style={styles.followBtnText}>+</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLike(item.id)}
+        >
+          <SVGIcon
+            name="heart"
+            size={36}
+            color={item.isLiked ? COLORS.secondary : COLORS.text}
+          />
+          <Text style={styles.actionText}>{item.likes}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => openComments(item.id)}
+        >
+          <SVGIcon name="comment" size={34} color={COLORS.text} />
+          <Text style={styles.actionText}>{item.commentsCount}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleShare(item)}
+        >
+          <SVGIcon name="share" size={32} color={COLORS.text} />
+          <Text style={styles.actionText}>{item.shares}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleBookmark(item)}
+        >
+          <SVGIcon
+            name="inbox"
+            size={30}
+            color={item.isBookmarked ? COLORS.accent : COLORS.text}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleSaveOffline(item)}
+        >
+          <SVGIcon name="settings" size={28} color={COLORS.text} />
+        </TouchableOpacity>
+
+        <SpinVinyl isPlaying={isPlaying && !commentsVisible && !(isCurrentItem && userPaused)} />
+      </Animated.View>
+    </View>
+  );
+});
+
 export const FeedScreen = ({ route, navigation }) => {
-  // 1. ALL HOOKS AT THE TOP
   const [videos, setVideos] = useState([]);
-  const [activeTab, setActiveTab] = useState('pourToi'); 
+  const [activeTab, setActiveTab] = useState('pourToi');
   const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
-  
+
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
   const isReadyToScroll = useRef(false);
@@ -88,7 +248,6 @@ export const FeedScreen = ({ route, navigation }) => {
 
   const initialVideoId = route?.params?.initialVideoId;
 
-  // Viewability Config Hooks
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 80,
   }).current;
@@ -109,7 +268,7 @@ export const FeedScreen = ({ route, navigation }) => {
         const offline = await offlineService.getOfflineVideos();
         const merged = offlineService.mergeWithOffline(list, offline);
         setVideos(merged);
-        
+
         if (!initialVideoId && !activeVideoId) {
           setActiveVideoId(merged[0].id);
         }
@@ -135,14 +294,13 @@ export const FeedScreen = ({ route, navigation }) => {
     }, [loadVideos])
   );
 
-  // Optimized scroll to initial video
   useEffect(() => {
     if (initialVideoId && videos.length > 0 && isReadyToScroll.current) {
       const index = videos.findIndex(v => v.id === initialVideoId);
       if (index !== -1) {
         setCurrentVisibleIndex(index);
         setActiveVideoId(initialVideoId);
-        
+
         const timer = setTimeout(() => {
           if (flatListRef.current) {
             try {
@@ -156,7 +314,7 @@ export const FeedScreen = ({ route, navigation }) => {
             }
           }
         }, 100);
-        
+
         return () => clearTimeout(timer);
       }
     }
@@ -185,10 +343,11 @@ export const FeedScreen = ({ route, navigation }) => {
     setUserPaused(false);
   }, [currentVisibleIndex, activeVideoId]);
 
-  const handleLike = async (videoId) => {
-    try {
-      await dbService.likeVideo(videoId);
-      setVideos(prev => prev.map(v => {
+  const handleLike = useCallback(async (videoId) => {
+    let previousVideos;
+    setVideos(prev => {
+      previousVideos = prev;
+      return prev.map(v => {
         if (v.id === videoId) {
           const isLiked = !v.isLiked;
           const currentLikesStr = v.likes.toString();
@@ -198,7 +357,7 @@ export const FeedScreen = ({ route, navigation }) => {
           }
           const newLikes = isLiked ? numericLikes + 1 : numericLikes - 1;
           const newLikesStr = newLikes >= 1000 ? (newLikes / 1000).toFixed(1) + 'K' : newLikes.toString();
-          
+
           return {
             ...v,
             likes: newLikesStr,
@@ -206,11 +365,17 @@ export const FeedScreen = ({ route, navigation }) => {
           };
         }
         return v;
-      }));
+      });
+    });
+
+    try {
+      await dbService.likeVideo(videoId);
     } catch (err) {
       console.error('Like error:', err);
+      if (previousVideos) setVideos(previousVideos);
+      Alert.alert('Erreur', 'Impossible de liker la vidéo.');
     }
-  };
+  }, []);
 
   const handleVideoTap = useCallback((videoId) => {
     const now = Date.now();
@@ -230,11 +395,11 @@ export const FeedScreen = ({ route, navigation }) => {
     }, DOUBLE_PRESS_DELAY);
   }, [handleLike]);
 
-  const handleShare = async (video) => {
+  const handleShare = useCallback(async (video) => {
     try {
       const result = await Share.share({
         message: `Regarde cette vidéo sur Afro Vibe !`,
-        url: video.videoUrl, // Native share dialogs handle URL copying well
+        url: video.videoUrl,
         title: 'Partager la vidéo',
       });
 
@@ -249,7 +414,7 @@ export const FeedScreen = ({ route, navigation }) => {
             }
             const newShares = numericShares + 1;
             const newSharesStr = newShares >= 1000 ? (newShares / 1000).toFixed(1) + 'K' : newShares.toString();
-            
+
             return {
               ...v,
               shares: newSharesStr,
@@ -262,24 +427,9 @@ export const FeedScreen = ({ route, navigation }) => {
       console.error('Share error:', err);
       Alert.alert('Erreur', 'Impossible de partager la vidéo.');
     }
-  };
+  }, []);
 
-  const displayedVideos = React.useMemo(() => {
-    if (activeTab === 'abonnements') {
-      const myId = authService.getCurrentUser()?.uid;
-      return videos.filter(
-        (v) => v.user?.isFollowing || v.user?.uid === myId,
-      );
-    }
-    return videos;
-  }, [videos, activeTab]);
-
-  const openComments = (videoId) => {
-    setActiveVideoId(videoId);
-    setCommentsVisible(true);
-  };
-
-  const handleBookmark = async (video) => {
+  const handleBookmark = useCallback(async (video) => {
     try {
       const result = await dbService.toggleBookmark(video.id);
       setVideos(prev => prev.map(v =>
@@ -289,9 +439,9 @@ export const FeedScreen = ({ route, navigation }) => {
     } catch (err) {
       console.error('Bookmark error:', err);
     }
-  };
+  }, []);
 
-  const handleSaveOffline = async (video) => {
+  const handleSaveOffline = useCallback(async (video) => {
     try {
       await offlineService.saveVideoOffline({
         id: video.id,
@@ -304,13 +454,13 @@ export const FeedScreen = ({ route, navigation }) => {
     } catch (err) {
       console.error('Offline save error:', err);
     }
-  };
+  }, []);
 
-  const handleFollowCreator = async (creatorId) => {
-    try {
-      await dbService.followUser(creatorId);
-      // Remove the + button visually for this creator in the feed
-      setVideos(prev => prev.map(v => {
+  const handleFollowCreator = useCallback(async (creatorId) => {
+    let previousVideos;
+    setVideos(prev => {
+      previousVideos = prev;
+      return prev.map(v => {
         if (v.user.uid === creatorId) {
           return {
             ...v,
@@ -318,136 +468,58 @@ export const FeedScreen = ({ route, navigation }) => {
           };
         }
         return v;
-      }));
+      });
+    });
+
+    try {
+      await dbService.followUser(creatorId);
     } catch (err) {
       console.error('Follow error:', err);
+      if (previousVideos) setVideos(previousVideos);
+      Alert.alert('Erreur', "Impossible de s'abonner au créateur.");
     }
-  };
+  }, []);
 
-  const renderVideoItem = ({ item, index }) => {
-    const isPlaying = isFocused && index === currentVisibleIndex;
-    const isCurrentItem = index === currentVisibleIndex;
-    const forcePaused = !isPlaying || commentsVisible || (isCurrentItem && userPaused);
-    const canTapVideo = isCurrentItem && isFocused && !commentsVisible;
-    
-    return (
-      <View style={styles.videoContainer}>
-        <VideoPlayerView 
-          videoUrl={item.videoUrl} 
-          paused={forcePaused} 
-          thumbnail={item.thumbnail}
-          enableTapControls={false}
-          showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
-        />
+  const openComments = useCallback((videoId) => {
+    setActiveVideoId(videoId);
+    setCommentsVisible(true);
+  }, []);
 
-        {canTapVideo && (
-          <Pressable
-            style={styles.tapOverlay}
-            onPress={() => handleVideoTap(item.id)}
-            accessibilityRole="button"
-            accessibilityLabel={userPaused ? 'Lire la vidéo' : 'Mettre en pause'}
-          />
-        )}
+  const renderVideoItem = useCallback(({ item, index }) => (
+    <VideoItem
+      item={item}
+      index={index}
+      isFocused={isFocused}
+      currentVisibleIndex={currentVisibleIndex}
+      commentsVisible={commentsVisible}
+      userPaused={userPaused}
+      handleVideoTap={handleVideoTap}
+      navigation={navigation}
+      handleFollowCreator={handleFollowCreator}
+      handleLike={handleLike}
+      openComments={openComments}
+      handleShare={handleShare}
+      handleBookmark={handleBookmark}
+      handleSaveOffline={handleSaveOffline}
+    />
+  ), [isFocused, currentVisibleIndex, commentsVisible, userPaused, handleVideoTap, navigation, handleFollowCreator, handleLike, openComments, handleShare, handleBookmark, handleSaveOffline]);
 
-        <View style={styles.bottomInfoContainer} pointerEvents="box-none">
-          <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
-            <Text style={styles.username}>@{item.user.username}</Text>
-          </TouchableOpacity>
-          {item.user.isVerified && (
-            <SVGIcon name="verified" size={14} style={styles.verifiedIcon} />
-          )}
-          <Text style={styles.caption} numberOfLines={3}>{item.caption}</Text>
-          
-          <View style={styles.musicContainer}>
-            <SVGIcon name="music" size={14} color={COLORS.text} style={styles.musicIcon} />
-            <Text style={styles.musicText} numberOfLines={1}>{item.audioName}</Text>
-          </View>
-        </View>
-
-        <View style={styles.rightButtonsPanel} pointerEvents="box-none">
-          {/* Creator Profile Bubble */}
-          <View style={styles.avatarContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
-              <Image 
-                source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
-                style={styles.creatorAvatar} 
-              />
-            </TouchableOpacity>
-            {!item.user.isFollowing && item.user.uid !== authService.getCurrentUser()?.uid && (
-              <TouchableOpacity 
-                style={styles.followBtn}
-                onPress={() => handleFollowCreator(item.user.uid)}
-              >
-                <Text style={styles.followBtnText}>+</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Like Button */}
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={() => handleLike(item.id)}
-          >
-            <SVGIcon 
-              name="heart" 
-              size={36} 
-              color={item.isLiked ? COLORS.secondary : COLORS.text} 
-            />
-            <Text style={styles.actionText}>{item.likes}</Text>
-          </TouchableOpacity>
-
-          {/* Comment Button */}
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={() => openComments(item.id)}
-          >
-            <SVGIcon name="comment" size={34} color={COLORS.text} />
-            <Text style={styles.actionText}>{item.commentsCount}</Text>
-          </TouchableOpacity>
-
-          {/* Share Button */}
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => handleShare(item)}
-          >
-            <SVGIcon name="share" size={32} color={COLORS.text} />
-            <Text style={styles.actionText}>{item.shares}</Text>
-          </TouchableOpacity>
-
-          {/* Bookmark Button */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleBookmark(item)}
-          >
-            <SVGIcon
-              name="inbox"
-              size={30}
-              color={item.isBookmarked ? COLORS.accent : COLORS.text}
-            />
-          </TouchableOpacity>
-
-          {/* Save Offline Button */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleSaveOffline(item)}
-          >
-            <SVGIcon name="settings" size={28} color={COLORS.text} />
-          </TouchableOpacity>
-
-          {/* Rotating Vinyl Record */}
-          <SpinVinyl isPlaying={isPlaying && !commentsVisible && !(isCurrentItem && userPaused)} />
-        </View>
-      </View>
-    );
-  };
+  const displayedVideos = React.useMemo(() => {
+    if (activeTab === 'abonnements') {
+      const myId = authService.getCurrentUser()?.uid;
+      return videos.filter(
+        (v) => v.user?.isFollowing || v.user?.uid === myId,
+      );
+    }
+    return videos;
+  }, [videos, activeTab]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent={true} backgroundColor="transparent" />
-      
-      {/* Top Header Selector (Pour toi / Abonnements) */}
+
       <View style={styles.topSelectorContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'pourToi' && styles.activeTabBorder]}
           onPress={() => setActiveTab('pourToi')}
         >
@@ -455,8 +527,8 @@ export const FeedScreen = ({ route, navigation }) => {
             Pour toi
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'abonnements' && styles.activeTabBorder]}
           onPress={() => setActiveTab('abonnements')}
         >
@@ -466,7 +538,6 @@ export const FeedScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Vertical Video Feed */}
       <FlatList
         ref={(ref) => {
           flatListRef.current = ref;
@@ -475,7 +546,6 @@ export const FeedScreen = ({ route, navigation }) => {
         data={displayedVideos}
         renderItem={renderVideoItem}
         keyExtractor={item => item.id}
-        extraData={`${currentVisibleIndex}-${commentsVisible}-${isFocused}-${activeTab}-${displayedVideos.length}-${userPaused}`}
         pagingEnabled={true}
         showsVerticalScrollIndicator={false}
         decelerationRate="fast"
@@ -507,9 +577,8 @@ export const FeedScreen = ({ route, navigation }) => {
         }
       />
 
-      {/* Comments Sheet Overlay */}
-      <CommentsBottomSheet 
-        visible={commentsVisible} 
+      <CommentsBottomSheet
+        visible={commentsVisible}
         onClose={() => setCommentsVisible(false)}
         videoId={activeVideoId}
       />
@@ -566,21 +635,8 @@ const styles = StyleSheet.create({
     width: width,
     height: FEED_HEIGHT,
   },
-  videoTapArea: {
-    flex: 1,
-  },
   tapOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 5,
-  },
-  pauseOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
     zIndex: 5,
   },
   bottomInfoContainer: {

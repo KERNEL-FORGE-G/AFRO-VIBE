@@ -37,6 +37,7 @@ export const AdminDashboardScreen = () => {
         onPress: async () => {
           try {
             await dbService.deleteVideoAdmin(id);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setVideos(prev => prev.filter(v => v.id !== id));
           } catch (err) {
             Alert.alert('Erreur', err.message || 'Suppression impossible.');
@@ -50,8 +51,13 @@ export const AdminDashboardScreen = () => {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color={COLORS.primary} />;
   }
 
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, [fadeAnim]);
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <Text style={styles.header}>Tableau de bord Admin</Text>
       <FlatList
         data={videos}
@@ -66,7 +72,7 @@ export const AdminDashboardScreen = () => {
         )}
         ListEmptyComponent={<Text style={styles.text}>Aucune vidéo trouvée.</Text>}
       />
-    </View>
+    </Animated.View>
   );
 };
 

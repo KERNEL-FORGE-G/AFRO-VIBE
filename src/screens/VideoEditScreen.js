@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Animated } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import { dbService } from '../services/apiService';
 
@@ -30,8 +30,13 @@ export const VideoEditScreen = ({ route, navigation }) => {
     }
   };
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, [fadeAnim]);
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <Text style={styles.title}>Modifier votre Afro Vibe</Text>
       <TextInput
         style={styles.input}
@@ -43,8 +48,8 @@ export const VideoEditScreen = ({ route, navigation }) => {
       <Text style={styles.label}>Choisir une catégorie :</Text>
       <View style={styles.categoryContainer}>
         {categories.map((cat) => (
-          <TouchableOpacity 
-            key={cat} 
+          <TouchableOpacity
+            key={cat}
             style={[styles.catBtn, category === cat && styles.activeCatBtn]}
             onPress={() => setCategory(cat)}
           >
@@ -55,7 +60,7 @@ export const VideoEditScreen = ({ route, navigation }) => {
       <TouchableOpacity style={styles.publishBtn} onPress={handlePublish} disabled={loading}>
         {loading ? <ActivityIndicator color={COLORS.text} /> : <Text style={styles.publishBtnText}>Publier</Text>}
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
 };
 
