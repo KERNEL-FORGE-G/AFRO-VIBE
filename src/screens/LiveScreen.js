@@ -39,21 +39,20 @@ export const LiveScreen = ({ navigation }) => {
     }, 100);
   };
 
-  // Trigger floating heart
+  // Trigger floating heart with enhanced animations
   const addHeart = () => {
     const newHeart = {
       id: 'heart_' + Date.now(),
-      left: Math.random() * 80 + 20, // random offset
+      left: Math.random() * 100 + 10,
       animValue: new Animated.Value(0),
     };
     setHearts(prev => [...prev, newHeart]);
 
     Animated.timing(newHeart.animValue, {
       toValue: 1,
-      duration: 2000,
+      duration: 2500,
       useNativeDriver: true,
     }).start(() => {
-      // Remove heart after animation complete
       setHearts(prev => prev.filter(h => h.id !== newHeart.id));
     });
   };

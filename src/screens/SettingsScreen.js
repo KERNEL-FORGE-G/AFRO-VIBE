@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView,
-  Image, StatusBar, TextInput, Alert, Linking
+  Image, StatusBar, TextInput, Alert, Linking, Animated, LayoutAnimation
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
@@ -31,9 +31,12 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   const handleToggleStorage = async (mode) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setStorageMode(mode);
     try {
       await configService.setStorageMode(mode);
+      // Force reload config to re-initialize services
+      await configService.loadConfig();
       Alert.alert('Mode', `L'application utilise désormais le mode ${mode === 'online' ? 'En Ligne' : 'Local'}.`);
     } catch (e) {
       Alert.alert('Erreur', 'Impossible de changer le mode.');
@@ -60,8 +63,13 @@ const SettingsScreen = ({ navigation }) => {
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
 
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, [fadeAnim]);
+
   return (
-    <View style={styles.container}>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
       <View style={styles.header}>
@@ -134,7 +142,7 @@ const SettingsScreen = ({ navigation }) => {
           <Text style={styles.logoutBtnText}>Déconnexion</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 };
 

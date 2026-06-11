@@ -7,8 +7,9 @@ import {
   Image, 
   TouchableOpacity, 
   Dimensions, 
-  StatusBar,
+  StatusBar,,
   Platform
+  Animated
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import TribalPattern from '../components/TribalPattern';
@@ -17,9 +18,19 @@ import SVGIcon from '../components/SVGIcon';
 const { width } = Dimensions.get('window');
 
 export const WelcomeScreen = ({ navigation }) => {
+    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(30)).current;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 20, friction: 7, useNativeDriver: true })
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+      <StatusBar, barStyle="light-content" backgroundColor={COLORS.background} />
       
       {/* Top Traditional Border */}
       <TribalPattern position="top" height={15} />
@@ -67,7 +78,7 @@ export const WelcomeScreen = ({ navigation }) => {
 
       {/* Bottom Traditional Border */}
       <TribalPattern position="bottom" height={15} />
-    </View>
+    </Animated.View>
   );
 };
 
@@ -153,7 +164,7 @@ const styles = StyleSheet.create({
   },
   settingsBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 55 : (StatusBar.currentHeight || 0) + 15,
+    top: Platform.OS === 'ios' ? 55 : (StatusBar,.currentHeight || 0) + 15,
     right: 20,
     zIndex: 10,
     width: 42,
