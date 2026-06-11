@@ -1,5 +1,6 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
+includeBuild('../node_modules/@react-native/gradle-plugin')
 extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   ex.autolinkLibrariesFromCommand(
     ["node", "node_modules/@react-native-community/cli/build/bin.js", "config"]
@@ -7,7 +8,6 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 rootProject.name = 'com.afrovibe.app'
 include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
 
 // Nitro modules are now handled by autolinking
 

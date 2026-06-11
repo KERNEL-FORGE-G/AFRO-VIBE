@@ -1,14 +1,14 @@
 // Welcome Screen (Splash/Landing)
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
-  Dimensions, 
-  StatusBar,,
-  Platform
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar,
+  Platform,
   Animated
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
@@ -30,14 +30,14 @@ export const WelcomeScreen = ({ navigation }) => {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-      <StatusBar, barStyle="light-content" backgroundColor={COLORS.background} />
-      
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+
       {/* Top Traditional Border */}
       <TribalPattern position="top" height={15} />
-      
+
       {/* Settings Button */}
-      <TouchableOpacity 
-        style={styles.settingsBtn} 
+      <TouchableOpacity
+        style={styles.settingsBtn}
         onPress={() => navigation.navigate('Settings')}
       >
         <SVGIcon name="settings" size={24} color={COLORS.text} />
@@ -47,7 +47,7 @@ export const WelcomeScreen = ({ navigation }) => {
       <View style={styles.contentContainer}>
         {/* Main Circular Logo */}
         <View style={styles.logoOutline}>
-          <Image 
+          <Image
             source={require('../assets/images/logo.jpg')}
             style={styles.logo}
             resizeMode="contain"
@@ -60,14 +60,14 @@ export const WelcomeScreen = ({ navigation }) => {
 
         {/* Button Section */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.btn, styles.btnPrimary]}
             onPress={() => navigation.navigate('Login')}
           >
             <Text style={styles.btnTextPrimary}>Se connecter</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.btn, styles.btnSecondary]}
             onPress={() => navigation.navigate('Register')}
           >
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   },
   settingsBtn: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 55 : (StatusBar,.currentHeight || 0) + 15,
+    top: Platform.OS === 'ios' ? 55 : (StatusBar.currentHeight || 0) + 15,
     right: 20,
     zIndex: 10,
     width: 42,
