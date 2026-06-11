@@ -56,7 +56,7 @@ export const LoginScreen = ({ navigation }) => {
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-      <StatusBar, barStyle="light-content" backgroundColor={COLORS.background} />
+       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <TribalPattern position="top" height={15} />
 
       <KeyboardAvoidingView
