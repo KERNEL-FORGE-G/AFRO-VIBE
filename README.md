@@ -62,6 +62,33 @@ firebase deploy --only firestore:rules
 npm run android   # ou npm run ios
 ```
 
+---
+
+## 🛠 Prérequis Techniques & Configuration (Android)
+
+Pour que le projet compile correctement avec la nouvelle architecture et Vision Camera 5+, votre environnement doit respecter les points suivants :
+
+### 1. Android SDK & NDK
+- **Compile SDK** : 36 (obligatoire pour Vision Camera / UltraHDR)
+- **NDK Version** : `27.1.12297006` (Configuré dans `android/build.gradle`)
+- **CMake** : `3.22.1`
+
+### 2. Espace Disque & Mémoire
+- **Espace Disque** : Prévoyez au moins **10 Go** d'espace libre sur votre partition. Les builds natifs (C++) consomment beaucoup d'espace temporaire.
+- **Gradle RAM** : Configuré à **4 Go** dans `gradle.properties` (`org.gradle.jvmargs=-Xmx4096m`).
+
+### 3. Dépannage (Build Failed)
+Si le build échoue avec une erreur d'espace ou de cache :
+```bash
+cd android
+./gradlew clean
+rm -rf app/build
+cd ..
+npm run android
+```
+
+---
+
 ### 5. Mode local (optionnel)
 
 ```bash
