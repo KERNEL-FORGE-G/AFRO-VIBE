@@ -4,6 +4,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { COLORS } from '../styles/theme';
 import { authService } from '../services/apiService';
+import Toast from '../components/Toast';
+import { setToastRef } from '../utils/toastManager';
 
 // Import Screens & Sub-Navigators
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -60,32 +62,35 @@ export const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          cardStyle: { backgroundColor: COLORS.background },
-        }}
-        initialRouteName={user ? 'MainTabs' : 'Welcome'}
-      >
-        {/* Auth Stack */}
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        
-        {/* Main Application Tabs */}
-        <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-        
-        {/* Auxiliary Screens Stack */}
-        <Stack.Screen name="Live" component={LiveScreen} />
-        <Stack.Screen name="SoundDetail" component={SoundDetailScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="VideoEdit" component={VideoEditScreen} />
-        <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
-        <Stack.Screen name="Chat" component={ChatScreen} />
-        <Stack.Screen name="Profile" component={ProfileScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <View style={{ flex: 1 }}>
+      <NavigationContainer ref={navigationRef}>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { backgroundColor: COLORS.background },
+          }}
+          initialRouteName={user ? 'MainTabs' : 'Welcome'}
+        >
+          {/* Auth Stack */}
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+
+          {/* Main Application Tabs */}
+          <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+
+          {/* Auxiliary Screens Stack */}
+          <Stack.Screen name="Live" component={LiveScreen} />
+          <Stack.Screen name="SoundDetail" component={SoundDetailScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="VideoEdit" component={VideoEditScreen} />
+          <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+          <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+      <Toast ref={(ref) => setToastRef(ref)} />
+    </View>
   );
 };
 

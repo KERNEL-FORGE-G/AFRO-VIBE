@@ -463,8 +463,14 @@ export const onlineDbService = {
 
   getUser: async (userId) => {
     assertFirebase();
-    const user = await fetchFirestoreUser(userId);
-    if (!user) throw new Error('Utilisateur introuvable');
+    let user = await fetchFirestoreUser(userId);
+    if (!user) {
+      // Si c'est l'utilisateur actuel, on peut tenter de récupérer les infos de base
+      if (userId === currentUser?.uid) {
+        return currentUser;
+      }
+      throw new Error('Utilisateur introuvable');
+    }
     const myId = currentUser?.uid;
     let isFollowing = false;
     if (myId && myId !== userId) {

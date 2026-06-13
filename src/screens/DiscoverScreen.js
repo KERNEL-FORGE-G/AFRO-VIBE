@@ -86,10 +86,11 @@ export const DiscoverScreen = ({ navigation }) => {
   const fetchVideos = async () => {
     setLoading(true);
     try {
-      const data = await apiService.db.getVideos();
-      setVideos(data);
+      const response = await apiService.db.getVideos();
+      setVideos(response.videos || []);
     } catch (err) {
       console.error('Error fetching videos:', err);
+      setVideos([]);
     } finally {
       setLoading(false);
     }
@@ -231,7 +232,11 @@ export const DiscoverScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10,
+  },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, backgroundColor: COLORS.background },
   searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.cardBackground, borderRadius: 20, paddingHorizontal: SPACING.md, height: 40, borderWidth: 1, borderColor: COLORS.border },
   searchIcon: { marginRight: SPACING.xs },

@@ -15,7 +15,6 @@ function App() {
       try {
         await configService.loadConfig();
         await initNotifications();
-        await outboxService.sync();
       } catch (error) {
         console.error('Erreur lors de l\'initialisation de l\'app:', error);
       }
@@ -45,9 +44,13 @@ function App() {
       }
     };
 
-    const unsubscribeAuth = authService.onAuthStateChanged(() => {
+    const unsubscribeAuth = authService.onAuthStateChanged((user) => {
       unsubscribeNotifs();
-      setupNotifs();
+      if (user) {
+        setupNotifs();
+        // Déclencher la synchro de l'outbox une fois connecté
+        outboxService.sync();
+      }
     });
 
     return () => {

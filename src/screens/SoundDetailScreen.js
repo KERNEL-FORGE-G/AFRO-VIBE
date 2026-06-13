@@ -72,7 +72,8 @@ export const SoundDetailScreen = ({ route, navigation }) => {
   useEffect(() => {
     const fetchVideos = async () => {
       try {
-        const allVideos = await dbService.getVideos();
+        const response = await dbService.getVideos();
+        const allVideos = response.videos || [];
         const filtered = allVideos.filter(v => v.audioName === soundName);
         setVideos(filtered.length > 0 ? filtered : allVideos);
       } catch (err) {

@@ -5,8 +5,8 @@ export const fetchVideos = createAsyncThunk(
   'videos/fetchVideos',
   async (userId, { rejectWithValue }) => {
     try {
-      const videos = await dbService.getVideos(userId);
-      return videos;
+      const response = await dbService.getVideos(userId);
+      return response.videos || [];
     } catch (error) {
       return rejectWithValue(error.message);
     }

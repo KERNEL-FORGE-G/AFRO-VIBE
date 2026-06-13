@@ -12,30 +12,31 @@ import {
   AppState,
   Animated
 } from 'react-native';
-import {
+import * as VisionCamera from 'react-native-vision-camera';
+const {
   Camera,
   useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
   useVideoOutput,
-} from 'react-native-vision-camera';
-import { useIsFocused } from '@react-navigation/native';
-import { COLORS, SPACING } from '../styles/theme';
-import SVGIcon from '../components/SVGIcon';
-import TribalPattern from '../components/TribalPattern';
-import { launchImageLibrary } from 'react-native-image-picker';
+} = VisionCamera;
 
 const { width } = Dimensions.get('window');
 
 export const CameraScreen = ({ navigation }) => {
+  // Check if library is loaded
+  if (!VisionCamera || !useCameraDevice) {
+    console.error('VisionCamera library not correctly loaded. Check native logs.');
+  }
+
   const [recording, setRecording] = useState(false);
   const [speed, setSpeed] = useState('1x');
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState('off');
   const [cameraType, setCameraType] = useState('back');
-  const entranceAnim = React.useRef(new Animated.Value(0)).current;
+  const entranceAnim = useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.timing(entranceAnim, {
       toValue: 1,
       duration: 500,

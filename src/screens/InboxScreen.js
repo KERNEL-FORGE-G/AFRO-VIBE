@@ -199,7 +199,11 @@ export const InboxScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10,
+  },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm },
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: COLORS.text },
   storiesContainer: { borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: SPACING.sm },

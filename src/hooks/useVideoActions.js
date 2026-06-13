@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import { Share, Alert, useCallback } from 'react-native';
+import { Share } from 'react-native';
 import { dbService, authService } from '../services/apiService';
 import offlineService from '../services/offlineService';
 import outboxService from '../services/outboxService';
 import Haptics from '../utils/haptics';
+import { showToast } from '../utils/toastManager';
 
 export const useVideoActions = (setVideos) => {
 
@@ -72,7 +73,7 @@ export const useVideoActions = (setVideos) => {
       }
     } catch (err) {
       console.error('Share error:', err);
-      Alert.alert('Erreur', 'Impossible de partager la vidéo.');
+      showToast('Impossible de partager la vidéo', 'error');
     }
   }, [setVideos]);
 
@@ -98,9 +99,10 @@ export const useVideoActions = (setVideos) => {
         category: video.category,
         audioName: video.audioName,
       });
-      Alert.alert('Hors ligne', 'Vidéo sauvegardée pour lecture hors ligne.');
+      showToast('Vidéo sauvegardée (Hors ligne)', 'success');
     } catch (err) {
       console.error('Offline save error:', err);
+      showToast('Erreur lors de la sauvegarde', 'error');
     }
   }, []);
 

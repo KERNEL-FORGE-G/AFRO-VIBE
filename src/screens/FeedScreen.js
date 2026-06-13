@@ -18,11 +18,13 @@ import {
   LayoutAnimation
 } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import VideoPlayerView from '../components/VideoPlayerView';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
 import FeedSkeleton from '../components/FeedSkeleton';
+import { showToast } from '../utils/toastManager';
 import { dbService, configService, authService } from '../services/apiService';
 import offlineService from '../services/offlineService';
 import { useVideoActions } from '../hooks/useVideoActions';
@@ -81,18 +83,18 @@ const VideoItem = memo(({
   currentVisibleIndex,
   commentsVisible,
   userPaused,
-  handleVideoTap,
   navigation,
   handleFollowCreator,
   handleLike,
   openComments,
   handleShare,
   handleBookmark,
-  handleSaveOffline
+  handleSaveOffline,
+  onTogglePause
 }) => {
   const isPlaying = isFocused && index === currentVisibleIndex;
   const isCurrentItem = index === currentVisibleIndex;
-  const forcePaused = !isPlaying || commentsVisible || (isCurrentItem && userPaused);
+  const forcePaused = !isPlaying || commentsVisible;
   const canTapVideo = isCurrentItem && isFocused && !commentsVisible;
 
   const animValue = useRef(new Animated.Value(0)).current;
@@ -124,18 +126,11 @@ const VideoItem = memo(({
         videoUrl={item.videoUrl}
         paused={forcePaused}
         thumbnail={item.thumbnail}
-        enableTapControls={false}
+        enableTapControls={canTapVideo}
         showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
+        onSingleTap={() => onTogglePause(!userPaused)}
+        onDoubleTap={() => handleLike(item.id)}
       />
-
-      {canTapVideo && (
-        <Pressable
-          style={styles.tapOverlay}
-          onPress={() => handleVideoTap(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={userPaused ? 'Lire la vidéo' : 'Mettre en pause'}
-        />
-      )}
 
       <Animated.View
         style={[
@@ -254,6 +249,7 @@ export const FeedScreen = ({ route, navigation }) => {
   } = useVideoActions(setVideos);
 
   const isFocused = useIsFocused();
+  const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
   const isReadyToScroll = useRef(false);
   const lastTapRef = useRef(0);
@@ -289,6 +285,9 @@ export const FeedScreen = ({ route, navigation }) => {
         throw new Error('No online videos');
       }
     } catch (err) {
+      console.error('Feed load error:', err);
+      showToast(err.message, 'error');
+
       const cachedRaw = await AsyncStorage.getItem(VIDEO_CACHE_KEY);
       const cachedList = cachedRaw ? JSON.parse(cachedRaw) : [];
       const offline = await offlineService.getOfflineVideos();
@@ -383,24 +382,6 @@ export const FeedScreen = ({ route, navigation }) => {
     setUserPaused(false);
   }, [currentVisibleIndex, activeVideoId]);
 
-  const handleVideoTap = useCallback((videoId) => {
-    const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 280;
-
-    if (now - lastTapRef.current < DOUBLE_PRESS_DELAY) {
-      lastTapRef.current = 0;
-      handleLike(videoId);
-      return;
-    }
-
-    lastTapRef.current = now;
-    setTimeout(() => {
-      if (lastTapRef.current !== now) return;
-      lastTapRef.current = 0;
-      setUserPaused((prev) => !prev);
-    }, DOUBLE_PRESS_DELAY);
-  }, [handleLike]);
-
   const openComments = useCallback((videoId) => {
     setActiveVideoId(videoId);
     setCommentsVisible(true);
@@ -414,7 +395,6 @@ export const FeedScreen = ({ route, navigation }) => {
       currentVisibleIndex={currentVisibleIndex}
       commentsVisible={commentsVisible}
       userPaused={userPaused}
-      handleVideoTap={handleVideoTap}
       navigation={navigation}
       handleFollowCreator={handleFollowCreator}
       handleLike={handleLike}
@@ -422,8 +402,9 @@ export const FeedScreen = ({ route, navigation }) => {
       handleShare={handleShare}
       handleBookmark={handleBookmark}
       handleSaveOffline={handleSaveOffline}
+      onTogglePause={setUserPaused}
     />
-  ), [isFocused, currentVisibleIndex, commentsVisible, userPaused, handleVideoTap, navigation, handleFollowCreator, handleLike, openComments, handleShare, handleBookmark, handleSaveOffline]);
+  ), [isFocused, currentVisibleIndex, commentsVisible, userPaused, navigation, handleFollowCreator, handleLike, openComments, handleShare, handleBookmark, handleSaveOffline]);
 
   const displayedVideos = React.useMemo(() => {
     if (activeTab === 'abonnements') {
@@ -522,7 +503,7 @@ const styles = StyleSheet.create({
   },
   topSelectorContainer: {
     position: 'absolute',
-    top: 40,
+    top: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'center',

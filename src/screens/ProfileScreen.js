@@ -21,6 +21,7 @@ import TribalPattern from '../components/TribalPattern';
 import VideoPlayerView from '../components/VideoPlayerView';
 import ProfileSkeleton from '../components/ProfileSkeleton';
 import Haptics from '../utils/haptics';
+import { showToast } from '../utils/toastManager';
 import { authService, dbService, configService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
@@ -80,9 +81,9 @@ export const ProfileScreen = ({ navigation, route }) => {
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [editBioValue, setEditBioValue] = useState('');
   const [isFollowing, setIsFollowing] = useState(false);
-  const avatarScale = React.React.useRef(new Animated.Value(0)).current;
+  const avatarScale = useRef(new Animated.Value(0)).current;
 
-  React.React.useEffect(() => {
+  useEffect(() => {
     if (profile) {
       Animated.spring(avatarScale, {
         toValue: 1,
@@ -171,7 +172,7 @@ export const ProfileScreen = ({ navigation, route }) => {
         setProfile(p => ({ ...p, followers: p.followers + 1 }));
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de mettre à jour l\'abonnement.');
+      showToast('Erreur lors de l\'abonnement', 'error');
     }
   };
 
@@ -187,9 +188,9 @@ export const ProfileScreen = ({ navigation, route }) => {
       await dbService.updateProfile({ bio: editBioValue });
       setProfile(prev => ({ ...prev, bio: editBioValue }));
       setIsEditingBio(false);
-      Alert.alert('Succès', 'Profil mis à jour !');
+      showToast('Profil mis à jour !', 'success');
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de mettre à jour le profil.');
+      showToast('Erreur lors de la mise à jour', 'error');
     } finally {
       setLoading(false);
     }
@@ -203,10 +204,10 @@ export const ProfileScreen = ({ navigation, route }) => {
       const sourceUri = result.assets[0].uri;
       const res = await dbService.uploadAvatar(sourceUri);
       setProfile((prev) => ({ ...prev, avatar: res.avatarUrl }));
-      Alert.alert('Succès', 'Avatar mis à jour !');
+      showToast('Avatar mis à jour !', 'success');
     } catch (err) {
       console.error('Avatar process error:', err);
-      Alert.alert('Erreur', err.message || 'Impossible de mettre à jour l\'avatar.');
+      showToast(err.message || 'Erreur mise à jour avatar', 'error');
     } finally {
       setLoading(false);
     }
@@ -308,7 +309,11 @@ export const ProfileScreen = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 0) + 10,
+  },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },

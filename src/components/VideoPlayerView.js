@@ -103,16 +103,15 @@ export const VideoPlayerView = ({
       if (lastTap.current !== now) return;
       lastTap.current = 0;
 
-      if (!forcePaused) {
-        setUserPaused((prev) => {
-          const next = !prev;
-          triggerPauseAnim(next);
-          return next;
-        });
-        onSingleTap?.();
-      }
+      // Toggle user pause state and trigger animation
+      setUserPaused((prev) => {
+        const next = !prev;
+        triggerPauseAnim(next);
+        return next;
+      });
+      onSingleTap?.();
     }, DOUBLE_PRESS_DELAY);
-  }, [forcePaused, heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
+  }, [heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
 
   if (!videoUrl) {
     return (
