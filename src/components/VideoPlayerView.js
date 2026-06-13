@@ -169,12 +169,15 @@ export const VideoPlayerView = ({
             setLoading(false);
           }}
           ignoreSilentSwitch="obey"
+          automaticallyWaitsToMinimizeStalling={true}
           bufferConfig={{
-            minBufferMs: 1500,
-            maxBufferMs: 5000,
-            bufferForPlaybackMs: 1000,
-            bufferForPlaybackAfterRebufferMs: 2000,
+            minBufferMs: 1000,
+            maxBufferMs: 20000,
+            bufferForPlaybackMs: 500,
+            bufferForPlaybackAfterRebufferMs: 1000,
           }}
+          preferredForwardBufferDuration={5}
+          preventsDisplaySleepDuringVideoPlayback={true}
           progressUpdateInterval={250.0}
         />
       )}
