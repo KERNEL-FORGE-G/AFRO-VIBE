@@ -21,6 +21,8 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
   increment,
   runTransaction,
   onSnapshot,
@@ -245,11 +247,61 @@ export const onlineAuthService = {
 };
 
 export const onlineDbService = {
-  getVideos: async () => {
+  getVideos: async (lastVisible = null, limitCount = 10) => {
     assertFirebase();
     const db = getFirestoreDb();
     const myId = currentUser?.uid;
-    const snap = await getDocs(query(collection(db, 'videos'), orderBy('created_at', 'desc')));
+
+    let vQuery = query(
+      collection(db, 'videos'),
+      orderBy('created_at', 'desc'),
+      limit(limitCount)
+    );
+
+    if (lastVisible) {
+      vQuery = query(vQuery, startAfter(lastVisible));
+    }
+
+    const snap = await getDocs(vQuery);
+    const lastDoc = snap.docs[snap.docs.length - 1];
+
+    const bookmarkSnap = myId
+      ? await getDocs(query(collection(db, 'bookmarks'), where('user_id', '==', myId)))
+      : { docs: [] };
+    const bookmarkedIds = new Set(bookmarkSnap.docs.map(d => d.data().video_id));
+
+    const videos = await Promise.all(snap.docs.map(async (videoDoc) => {
+      const video = { id: videoDoc.id, ...videoDoc.data() };
+      const user = await fetchFirestoreUser(video.user_id);
+      let isLiked = false;
+      let isFollowing = false;
+      if (myId) {
+        const likeDoc = await getDoc(doc(db, 'likes', `${video.id}_${myId}`));
+        isLiked = likeDoc.exists();
+        if (user) {
+          const followDoc = await getDoc(doc(db, 'follows', `${myId}_${user.id}`));
+          isFollowing = followDoc.exists();
+        }
+      }
+      return toClientVideo(video, user, {
+        isLiked,
+        isFollowing,
+        isBookmarked: bookmarkedIds.has(video.id),
+      });
+    }));
+
+    return { videos, lastVisible: lastDoc };
+  },
+
+  getUserVideos: async (userId) => {
+    assertFirebase();
+    const db = getFirestoreDb();
+    const myId = currentUser?.uid;
+    const snap = await getDocs(query(
+      collection(db, 'videos'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
+    ));
 
     const bookmarkSnap = myId
       ? await getDocs(query(collection(db, 'bookmarks'), where('user_id', '==', myId)))
@@ -585,6 +637,32 @@ export const onlineDbService = {
   deleteNotification: async (notifId) => {
     assertFirebase();
     await deleteDoc(doc(getFirestoreDb(), 'notifications', notifId));
+  },
+
+  subscribeToNotifications: (userId, callback) => {
+    assertFirebase();
+    const db = getFirestoreDb();
+    const q = query(
+      collection(db, 'notifications'),
+      where('user_id', '==', userId),
+      where('read', '==', false),
+      orderBy('created_at', 'desc')
+    );
+
+    return onSnapshot(q, async (snap) => {
+      const items = await Promise.all(snap.docs.map(async (n) => {
+        const notif = { id: n.id, ...n.data() };
+        const fromUser = await fetchFirestoreUser(notif.from_user_id);
+        return {
+          id: notif.id,
+          type: notif.type,
+          message: notif.message,
+          time: formatNotifTime(notif.created_at),
+          user: fromUser ? toClientUser(fromUser) : { username: 'user' },
+        };
+      }));
+      callback(items);
+    });
   },
 
   getRecentChatUsers: async () => {

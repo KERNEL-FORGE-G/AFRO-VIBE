@@ -15,13 +15,16 @@ Afro Vibe est une application mobile React Native de partage de vidéos courte d
 
 ## 🚀 Fonctionnalités
 
-- Feed vidéo plein écran (likes, commentaires, partage, favoris)
-- Caméra + upload vidéo
-- Profil (posts, liked, bookmarks)
-- Chat et notifications (Inbox)
-- Auth email + Google (mode online)
-- Mode local SQLite pour développement hors ligne
-- Sync local → cloud via backend Express
+- **Streaming Vidéo Optimisé** : Lecture bloc par bloc pour une fluidité maximale.
+- **Feed Vidéo Intelligent** : Pagination (Infinite Scroll) pour économiser la data et la batterie.
+- **Skeleton Loaders** : Feedback visuel moderne pendant le chargement des données.
+- **Mode Outbox (Sync Offline)** : Likez, commentez et suivez vos créateurs même sans réseau. Les actions se synchronisent automatiquement au retour de la connexion.
+- **Compression Vidéo Native** : Réduction de la taille des vidéos avant l'upload pour des publications ultra-rapides.
+- **Feedback Haptique** : Vibrations subtiles lors des interactions pour une expérience immersive.
+- **Notifications Réelles** : Notifications natives via Firebase et Notifee.
+- **Profil Complet** : Gestion des posts, likes et favoris avec grilles performantes.
+- **Chat Temps Réel** : Messagerie instantanée intégrée.
+- **Auth Sociale** : Support Google et GitHub via Firebase.
 
 ---
 
@@ -65,6 +68,26 @@ npm run android   # ou npm run ios
 npm run backend:dev:offline
 # Dans l'app : Paramètres → Mode Local → IP du serveur (ex: http://192.168.x.x:3000/api)
 ```
+
+---
+
+## 🔐 Configuration Authentification (Google & GitHub)
+
+### Google Auth
+1. Allez dans la [Console Firebase](https://console.firebase.google.com/).
+2. **Authentification** -> **Sign-in method** -> Activer **Google**.
+3. Dans les paramètres du projet, téléchargez le fichier `google-services.json` et placez-le dans `android/app/`.
+4. Récupérez l'**ID client Web** (OAuth 2.0) dans la console Google Cloud ou les paramètres Firebase.
+5. Copiez cet ID dans `src/config/env.js` sous `google.webClientId`.
+6. **Important** : Pour le développement, ajoutez l'empreinte SHA-1 de votre clé de debug dans la console Firebase.
+
+### GitHub Auth
+1. Allez dans les [Paramètres Développeur GitHub](https://github.com/settings/developers).
+2. Créez une nouvelle **OAuth App**.
+3. L'URL de rappel (Callback URL) est fournie par Firebase : **Auth** -> **GitHub** -> Copiez l'URL.
+4. Récupérez le **Client ID** et le **Client Secret**.
+5. Collez-les dans la console Firebase (Auth -> Sign-in method -> GitHub).
+6. L'application gérera automatiquement le flux via `signInWithGitHub` dans `onlineService.js`.
 
 ---
 

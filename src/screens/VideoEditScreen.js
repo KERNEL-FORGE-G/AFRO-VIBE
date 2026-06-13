@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Animated } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import { dbService } from '../services/apiService';
+import { compressVideo } from '../utils/videoProcessor';
 
 export const VideoEditScreen = ({ route, navigation }) => {
   const { videoUri } = route.params;
@@ -18,8 +19,11 @@ export const VideoEditScreen = ({ route, navigation }) => {
     }
     setLoading(true);
     try {
-      console.log('[Upload] Publication vidéo:', videoUri);
-      await dbService.uploadVideo(videoUri, caption, category);
+      console.log('[Upload] Compression de la vidéo...');
+      const processedUri = await compressVideo(videoUri);
+
+      console.log('[Upload] Publication vidéo:', processedUri);
+      await dbService.uploadVideo(processedUri, caption, category);
       Alert.alert('Succès', 'Vidéo publiée avec succès !');
       navigation.navigate('MainTabs', { screen: 'Accueil' });
     } catch (err) {

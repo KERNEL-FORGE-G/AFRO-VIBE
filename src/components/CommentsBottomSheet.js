@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from './SVGIcon';
-import { dbService } from '../services/apiService';
+import { dbService, authService } from '../services/apiService';
+import outboxService from '../services/outboxService';
+import Haptics from '../utils/haptics';
 
 const { height } = Dimensions.get('window');
 
@@ -46,9 +48,33 @@ export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
   const handlePostComment = async () => {
     if (!newComment.trim()) return;
     
-    const addedComment = await dbService.addComment(videoId, newComment);
-    setComments(prev => [addedComment, ...prev]);
+    const text = newComment.trim();
     setNewComment('');
+    Haptics.light();
+
+    // UI Optimiste
+    const currentUser = authService.getCurrentUser();
+    const optimisticComment = {
+      id: Date.now().toString(),
+      text,
+      time: 'Maintenant',
+      user: {
+        uid: currentUser?.uid,
+        username: currentUser?.username || 'moi',
+        avatar: currentUser?.avatar
+      }
+    };
+
+    setComments(prev => [optimisticComment, ...prev]);
+
+    try {
+      const realComment = await dbService.addComment(videoId, text);
+      // Remplacer le commentaire optimiste par le vrai (pour avoir le bon ID)
+      setComments(prev => prev.map(c => c.id === optimisticComment.id ? realComment : c));
+    } catch (error) {
+      console.log('Comment error, saving to outbox:', error.message);
+      await outboxService.addAction('COMMENT', { videoId, text });
+    }
   };
 
   const renderCommentItem = ({ item }) => (

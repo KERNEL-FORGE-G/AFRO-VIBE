@@ -22,8 +22,10 @@ import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import VideoPlayerView from '../components/VideoPlayerView';
 import CommentsBottomSheet from '../components/CommentsBottomSheet';
+import FeedSkeleton from '../components/FeedSkeleton';
 import { dbService, configService, authService } from '../services/apiService';
 import offlineService from '../services/offlineService';
+import { useVideoActions } from '../hooks/useVideoActions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
@@ -239,7 +241,17 @@ export const FeedScreen = ({ route, navigation }) => {
   const [commentsVisible, setCommentsVisible] = useState(false);
   const [activeVideoId, setActiveVideoId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState(null);
   const [userPaused, setUserPaused] = useState(false);
+
+  const {
+    handleLike,
+    handleShare,
+    handleBookmark,
+    handleSaveOffline,
+    handleFollowCreator
+  } = useVideoActions(setVideos);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
@@ -262,12 +274,13 @@ export const FeedScreen = ({ route, navigation }) => {
 
   const loadVideos = useCallback(async () => {
     try {
-      const list = await dbService.getVideos();
+      const { videos: list, lastVisible: last } = await dbService.getVideos(null, 5);
       if (list && list.length > 0) {
         await AsyncStorage.setItem(VIDEO_CACHE_KEY, JSON.stringify(list));
         const offline = await offlineService.getOfflineVideos();
         const merged = offlineService.mergeWithOffline(list, offline);
         setVideos(merged);
+        setLastVisible(last);
 
         if (!initialVideoId && !activeVideoId) {
           setActiveVideoId(merged[0].id);
@@ -281,12 +294,39 @@ export const FeedScreen = ({ route, navigation }) => {
       const offline = await offlineService.getOfflineVideos();
       const merged = offlineService.mergeWithOffline(cachedList, offline);
       setVideos(merged);
+      setLastVisible(null);
 
       if (!initialVideoId && merged.length > 0 && !activeVideoId) {
         setActiveVideoId(merged[0].id);
       }
     }
   }, [activeVideoId, initialVideoId]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !lastVisible || activeTab === 'abonnements') return;
+
+    setLoadingMore(true);
+    try {
+      const { videos: newList, lastVisible: nextLast } = await dbService.getVideos(lastVisible, 5);
+      if (newList && newList.length > 0) {
+        const offline = await offlineService.getOfflineVideos();
+        const merged = offlineService.mergeWithOffline(newList, offline);
+
+        setVideos(prev => {
+          const existingIds = new Set(prev.map(v => v.id));
+          const uniqueNew = merged.filter(v => !existingIds.has(v.id));
+          return [...prev, ...uniqueNew];
+        });
+        setLastVisible(nextLast);
+      } else {
+        setLastVisible(null);
+      }
+    } catch (err) {
+      console.error('Load more error:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, lastVisible, activeTab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -343,40 +383,6 @@ export const FeedScreen = ({ route, navigation }) => {
     setUserPaused(false);
   }, [currentVisibleIndex, activeVideoId]);
 
-  const handleLike = useCallback(async (videoId) => {
-    let previousVideos;
-    setVideos(prev => {
-      previousVideos = prev;
-      return prev.map(v => {
-        if (v.id === videoId) {
-          const isLiked = !v.isLiked;
-          const currentLikesStr = v.likes.toString();
-          let numericLikes = parseFloat(currentLikesStr);
-          if (currentLikesStr.includes('K')) {
-            numericLikes = numericLikes * 1000;
-          }
-          const newLikes = isLiked ? numericLikes + 1 : numericLikes - 1;
-          const newLikesStr = newLikes >= 1000 ? (newLikes / 1000).toFixed(1) + 'K' : newLikes.toString();
-
-          return {
-            ...v,
-            likes: newLikesStr,
-            isLiked,
-          };
-        }
-        return v;
-      });
-    });
-
-    try {
-      await dbService.likeVideo(videoId);
-    } catch (err) {
-      console.error('Like error:', err);
-      if (previousVideos) setVideos(previousVideos);
-      Alert.alert('Erreur', 'Impossible de liker la vidéo.');
-    }
-  }, []);
-
   const handleVideoTap = useCallback((videoId) => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 280;
@@ -394,91 +400,6 @@ export const FeedScreen = ({ route, navigation }) => {
       setUserPaused((prev) => !prev);
     }, DOUBLE_PRESS_DELAY);
   }, [handleLike]);
-
-  const handleShare = useCallback(async (video) => {
-    try {
-      const result = await Share.share({
-        message: `Regarde cette vidéo sur Afro Vibe !`,
-        url: video.videoUrl,
-        title: 'Partager la vidéo',
-      });
-
-      if (result.action === Share.sharedAction) {
-        await dbService.shareVideo(video.id);
-        setVideos(prev => prev.map(v => {
-          if (v.id === video.id) {
-            const currentSharesStr = v.shares.toString();
-            let numericShares = parseFloat(currentSharesStr);
-            if (currentSharesStr.includes('K')) {
-              numericShares = numericShares * 1000;
-            }
-            const newShares = numericShares + 1;
-            const newSharesStr = newShares >= 1000 ? (newShares / 1000).toFixed(1) + 'K' : newShares.toString();
-
-            return {
-              ...v,
-              shares: newSharesStr,
-            };
-          }
-          return v;
-        }));
-      }
-    } catch (err) {
-      console.error('Share error:', err);
-      Alert.alert('Erreur', 'Impossible de partager la vidéo.');
-    }
-  }, []);
-
-  const handleBookmark = useCallback(async (video) => {
-    try {
-      const result = await dbService.toggleBookmark(video.id);
-      setVideos(prev => prev.map(v =>
-        v.id === video.id ? { ...v, isBookmarked: result.bookmarked } : v,
-      ));
-      Alert.alert('Favoris', result.bookmarked ? 'Vidéo sauvegardée.' : 'Retirée des favoris.');
-    } catch (err) {
-      console.error('Bookmark error:', err);
-    }
-  }, []);
-
-  const handleSaveOffline = useCallback(async (video) => {
-    try {
-      await offlineService.saveVideoOffline({
-        id: video.id,
-        videoUri: video.videoUrl,
-        caption: video.caption,
-        category: video.category,
-        audioName: video.audioName,
-      });
-      Alert.alert('Hors ligne', 'Vidéo sauvegardée pour lecture hors ligne.');
-    } catch (err) {
-      console.error('Offline save error:', err);
-    }
-  }, []);
-
-  const handleFollowCreator = useCallback(async (creatorId) => {
-    let previousVideos;
-    setVideos(prev => {
-      previousVideos = prev;
-      return prev.map(v => {
-        if (v.user.uid === creatorId) {
-          return {
-            ...v,
-            user: { ...v.user, isFollowing: true }
-          };
-        }
-        return v;
-      });
-    });
-
-    try {
-      await dbService.followUser(creatorId);
-    } catch (err) {
-      console.error('Follow error:', err);
-      if (previousVideos) setVideos(previousVideos);
-      Alert.alert('Erreur', "Impossible de s'abonner au créateur.");
-    }
-  }, []);
 
   const openComments = useCallback((videoId) => {
     setActiveVideoId(videoId);
@@ -553,8 +474,10 @@ export const FeedScreen = ({ route, navigation }) => {
         viewabilityConfig={viewabilityConfig}
         getItemLayout={getItemLayout}
         onScrollToIndexFailed={onScrollToIndexFailed}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
         style={styles.feedList}
-        windowSize={2}
+        windowSize={3}
         initialNumToRender={1}
         maxToRenderPerBatch={1}
         removeClippedSubviews={true}
@@ -567,13 +490,19 @@ export const FeedScreen = ({ route, navigation }) => {
           />
         }
         ListEmptyComponent={
-          activeTab === 'abonnements' ? (
-            <View style={styles.emptyFeed}>
-              <Text style={styles.emptyFeedText}>
-                Abonnez-vous à des créateurs pour voir leurs vidéos ici.
-              </Text>
+          refreshing || videos.length > 0 ? null : (
+            <View>
+              {activeTab === 'abonnements' ? (
+                <View style={styles.emptyFeed}>
+                  <Text style={styles.emptyFeedText}>
+                    Abonnez-vous à des créateurs pour voir leurs vidéos ici.
+                  </Text>
+                </View>
+              ) : (
+                <FeedSkeleton />
+              )}
             </View>
-          ) : null
+          )
         }
       />
 

@@ -79,7 +79,8 @@ export const authService = {
 };
 
 export const dbService = {
-  getVideos: () => getActiveService().db.getVideos(),
+  getVideos: (lastVisible = null, limit = 10) => getActiveService().db.getVideos(lastVisible, limit),
+  getUserVideos: (userId) => getActiveService().db.getUserVideos(userId),
   likeVideo: (id) => getActiveService().db.likeVideo(id),
   shareVideo: (id) => getActiveService().db.shareVideo(id),
   getComments: (id) => getActiveService().db.getComments(id),
@@ -97,6 +98,7 @@ export const dbService = {
   getUnreadNotificationCount: () => getActiveService().db.getUnreadNotificationCount(),
   markNotificationRead: (id) => getActiveService().db.markNotificationRead(id),
   deleteNotification: (id) => getActiveService().db.deleteNotification(id),
+  subscribeToNotifications: (userId, cb) => getActiveService().db.subscribeToNotifications(userId, cb),
   getRecentChatUsers: () => getActiveService().db.getRecentChatUsers(),
   getLikedVideos: (uid) => getActiveService().db.getLikedVideos(uid),
   getBookmarkedVideos: (uid) => getActiveService().db.getBookmarkedVideos(uid),

@@ -135,7 +135,14 @@ export const localAuthService = {
 };
 
 export const localDbService = {
-  getVideos: async () => apiFetch('/videos'),
+  getVideos: async (lastVisible = null, limit = 10) => {
+    // For local, we could use query params ?lastId=...&limit=...
+    // But for now let's just return what the API gives and wrap it
+    const videos = await apiFetch(`/videos?limit=${limit}${lastVisible ? `&lastId=${lastVisible}` : ''}`);
+    return { videos, lastVisible: null }; // Simulated pagination
+  },
+
+  getUserVideos: async (userId) => apiFetch(`/videos?userId=${userId}`),
 
   likeVideo: async (videoId) => apiFetch(`/videos/${videoId}/like`, {
     method: 'POST',
@@ -255,6 +262,8 @@ export const localDbService = {
   markNotificationRead: async () => {},
 
   deleteNotification: async () => {},
+
+  subscribeToNotifications: (userId, callback) => () => {},
 
   getRecentChatUsers: async () => {
     if (!currentUser?.uid) return [];

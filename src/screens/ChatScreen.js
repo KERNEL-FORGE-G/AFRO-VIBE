@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,14 @@ import {
   Image,
   SafeAreaView,
   ActivityIndicator,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import apiService, { authService } from '../services/apiService';
+import Haptics from '../utils/haptics';
 
 const MessageItem = memo(({ item, currentUserId }) => {
     const isMine = item.sender_id === currentUserId;
@@ -62,6 +64,7 @@ export const ChatScreen = () => {
 
   const handleSend = async () => {
     if (!inputText.trim() || sending) return;
+    Haptics.medium();
     const textToSend = inputText.trim();
     setInputText('');
     setSending(true);

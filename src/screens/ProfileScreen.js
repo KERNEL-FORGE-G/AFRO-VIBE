@@ -19,6 +19,8 @@ import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import VideoPlayerView from '../components/VideoPlayerView';
+import ProfileSkeleton from '../components/ProfileSkeleton';
+import Haptics from '../utils/haptics';
 import { authService, dbService, configService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
@@ -121,8 +123,7 @@ export const ProfileScreen = ({ navigation, route }) => {
       } else if (activeTab === 'bookmarks') {
         tabVideos = await dbService.getBookmarkedVideos(uidToShow);
       } else {
-        const allVideos = await dbService.getVideos();
-        tabVideos = allVideos.filter(v => v.user.uid === uidToShow);
+        tabVideos = await dbService.getUserVideos(uidToShow);
       }
       setMyVideos(tabVideos);
     } catch (err) {
@@ -152,11 +153,13 @@ export const ProfileScreen = ({ navigation, route }) => {
 
   const handleEditProfile = () => {
     if (!isOwnProfile) return;
+    Haptics.light();
     setIsEditingBio(true);
   };
 
   const handleFollowToggle = async () => {
     if (isOwnProfile) return;
+    Haptics.medium();
     try {
       if (isFollowing) {
         await dbService.unfollowUser(profile.id);
@@ -214,11 +217,7 @@ export const ProfileScreen = ({ navigation, route }) => {
   ), [navigation]);
 
   if (!profile && loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+    return <ProfileSkeleton />;
   }
 
   const avatarSource = profile?.avatar ? { uri: profile.avatar } : require('../assets/images/logo.jpg');
@@ -280,9 +279,24 @@ export const ProfileScreen = ({ navigation, route }) => {
               <Text style={styles.bioText}>{profile?.bio || 'Pas encore de bio.'}</Text>
             )}
             <View style={styles.tabsContainer}>
-              <TouchableOpacity style={[styles.tabBtn, activeTab === 'posts' && styles.activeTabBtn]} onPress={() => setActiveTab('posts')}><SVGIcon name="adinkra1" size={20} color={activeTab === 'posts' ? COLORS.accent : COLORS.textSecondary} /></TouchableOpacity>
-              <TouchableOpacity style={[styles.tabBtn, activeTab === 'liked' && styles.activeTabBtn]} onPress={() => setActiveTab('liked')}><SVGIcon name="heart" size={20} color={activeTab === 'liked' ? COLORS.accent : COLORS.textSecondary} /></TouchableOpacity>
-              <TouchableOpacity style={[styles.tabBtn, activeTab === 'bookmarks' && styles.activeTabBtn]} onPress={() => setActiveTab('bookmarks')}><SVGIcon name="discover" size={20} color={activeTab === 'bookmarks' ? COLORS.accent : COLORS.textSecondary} /></TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'posts' && styles.activeTabBtn]}
+                onPress={() => { Haptics.light(); setActiveTab('posts'); }}
+              >
+                <SVGIcon name="adinkra1" size={20} color={activeTab === 'posts' ? COLORS.accent : COLORS.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'liked' && styles.activeTabBtn]}
+                onPress={() => { Haptics.light(); setActiveTab('liked'); }}
+              >
+                <SVGIcon name="heart" size={20} color={activeTab === 'liked' ? COLORS.accent : COLORS.textSecondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'bookmarks' && styles.activeTabBtn]}
+                onPress={() => { Haptics.light(); setActiveTab('bookmarks'); }}
+              >
+                <SVGIcon name="discover" size={20} color={activeTab === 'bookmarks' ? COLORS.accent : COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
           </View>
         }

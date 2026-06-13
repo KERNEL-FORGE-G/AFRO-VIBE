@@ -19,6 +19,7 @@ import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import VideoPlayerView from '../components/VideoPlayerView';
+import GridSkeleton from '../components/GridSkeleton';
 import apiService from '../services/apiService';
 import { MOCK_CHALLENGES } from '../services/mockData';
 
@@ -177,7 +178,9 @@ export const DiscoverScreen = ({ navigation }) => {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop: 50}}/>
+        <View style={{ padding: SPACING.lg, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          {[1, 2, 3, 4, 5, 6].map(i => <GridSkeleton key={i} />)}
+        </View>
       ) : (
         <FlatList
           data={filteredVideos}
