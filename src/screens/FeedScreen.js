@@ -15,7 +15,8 @@ import {
   RefreshControl,
   Share,
   Alert,
-  LayoutAnimation
+  LayoutAnimation,
+  Platform
 } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

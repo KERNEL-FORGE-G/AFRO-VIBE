@@ -131,7 +131,7 @@ export const LoginScreen = ({ navigation }) => {
               style={[styles.socialBtn, { backgroundColor: '#fff' }]} 
               onPress={async () => {
                 try {
-                  await authService.signInWithGoogle();
+                  await authService.signInWithAuthentifictor('google');
                   navigation.replace('MainTabs');
                 } catch (e) { setError(e.message); }
               }}
@@ -144,7 +144,8 @@ export const LoginScreen = ({ navigation }) => {
               style={[styles.socialBtn, { backgroundColor: '#333' }]}
               onPress={async () => {
                 try {
-                  await authService.signInWithGitHub();
+                  await authService.signInWithAuthentifictor('github');
+                  navigation.replace('MainTabs');
                 } catch (e) { setError(e.message); }
               }}
             >

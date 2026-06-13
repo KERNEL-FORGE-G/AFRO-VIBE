@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
   plusContainer: { justifyContent: 'center', alignItems: 'center', height: '100%' },
   badge: {
     backgroundColor: COLORS.secondary,
-    color: COLORS.text,
     fontSize: 9,
     fontWeight: 'bold',
     minWidth: 16,

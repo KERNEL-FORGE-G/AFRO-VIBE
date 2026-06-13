@@ -11,7 +11,8 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';

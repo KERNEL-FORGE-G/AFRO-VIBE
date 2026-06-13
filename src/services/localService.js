@@ -108,6 +108,10 @@ export const localAuthService = {
     throw new Error('Connexion GitHub disponible uniquement en mode En Ligne.');
   },
 
+  signInWithAuthentifictor: async () => {
+    throw new Error('Connexion via Authentifictor disponible uniquement en mode En Ligne.');
+  },
+
   createUserWithEmailAndPassword: async (email, password, username = 'new_user') => {
     const res = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',

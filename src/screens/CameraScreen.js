@@ -12,6 +12,7 @@ import {
   AppState,
   Animated
 } from 'react-native';
+import { COLORS, SPACING } from '../styles/theme';
 import * as VisionCamera from 'react-native-vision-camera';
 const {
   Camera,
@@ -20,6 +21,10 @@ const {
   useMicrophonePermission,
   useVideoOutput,
 } = VisionCamera;
+import { useIsFocused } from '@react-navigation/native';
+import { launchImageLibrary } from 'react-native-image-picker';
+import SVGIcon from '../components/SVGIcon';
+import TribalPattern from '../components/TribalPattern';
 
 const { width } = Dimensions.get('window');
 

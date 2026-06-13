@@ -57,6 +57,8 @@ export const authService = {
 
   signInWithGitHub: () => getActiveService().auth.signInWithGitHub(),
 
+  signInWithAuthentifictor: (provider) => getActiveService().auth.signInWithAuthentifictor(provider),
+
   createUserWithEmailAndPassword: (email, password, username) =>
     getActiveService().auth.createUserWithEmailAndPassword(email, password, username),
 

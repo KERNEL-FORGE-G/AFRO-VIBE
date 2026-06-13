@@ -12,7 +12,8 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';

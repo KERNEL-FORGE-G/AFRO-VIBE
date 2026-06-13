@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
+import { InAppBrowser } from 'react-native-inappbrowser-reborn';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -86,6 +87,21 @@ const toClientVideo = (video, user, extra = {}) => {
 const triggerAuthListeners = (user) => {
   currentUser = user;
   authListeners.forEach(listener => listener(user));
+};
+
+const decodeJwt = (token) => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
 };
 
 const fetchFirestoreUser = async (userId) => {
@@ -197,11 +213,49 @@ export const onlineAuthService = {
   },
 
   signInWithGitHub: async () => {
-    assertFirebase();
-    throw new Error(
-      'Connexion GitHub : activez le provider GitHub dans Firebase Console, ' +
-      'puis utilisez Google ou email/mot de passe en attendant.',
-    );
+    return await onlineAuthService.signInWithAuthentifictor('github');
+  },
+
+  signInWithAuthentifictor: async (provider) => {
+    const serviceUrl = "https://authentificator.vercel.app";
+    const appName = "AfroVibe";
+    const redirectUri = "afrovibe://auth/callback";
+    const url = `${serviceUrl}/api/auth/${provider}?app=${appName}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    try {
+      if (await InAppBrowser.isAvailable()) {
+        const result = await InAppBrowser.openAuth(url, redirectUri, {
+          showTitle: false,
+          enableUrlBarHiding: true,
+          enableDefaultShare: false,
+          forceCloseOnRedirection: true,
+        });
+
+        if (result.type === 'success') {
+          const params = new URLSearchParams(result.url.split('?')[1]);
+          const token = params.get('token');
+          const status = params.get('status');
+
+          if (status === 'success' && token) {
+             const userPayload = decodeJwt(token);
+             if (!userPayload) throw new Error('Token invalide');
+             
+             // Ensure user exists in Firestore
+             const user = await ensureUserProfile({ uid: userPayload.id, email: userPayload.email }, userPayload.name);
+             triggerAuthListeners(user);
+             return { success: true };
+          }
+          throw new Error('Authentification échouée');
+        }
+        throw new Error('Authentification annulée');
+      } else {
+        Linking.openURL(url);
+        return { success: false, message: 'Veuillez terminer l\'authentification dans votre navigateur.' };
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   },
 
   signOut: async () => {
