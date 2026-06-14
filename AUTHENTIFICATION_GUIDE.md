@@ -1,10 +1,11 @@
-# Documentation d'Intégration : Service Authentifictor
+# Guide d'Intégration : Authentifictor
 
-Le service **Authentifictor** est un fournisseur d'identité centralisé (Identity Provider OAuth2) conçu pour simplifier l'authentification dans vos applications via **Google** et **GitHub**.
+Le service **Authentifictor** est un fournisseur d'identité centralisé (OAuth2) conçu pour simplifier l'authentification dans vos applications via **Google** et **GitHub**. Ce guide détaille comment intégrer ce service dans vos projets.
 
 ---
 
-## 1. Vue d'Ensemble du Flux
+## 1. Fonctionnement
+Le processus d'authentification se déroule en trois étapes :
 
 1.  **Redirection :** Votre application redirige l'utilisateur vers le service Authentifictor (`/api/auth/{provider}`).
 2.  **Consentement :** L'utilisateur s'authentifie via le fournisseur choisi (Google ou GitHub).
@@ -12,102 +13,107 @@ Le service **Authentifictor** est un fournisseur d'identité centralisé (Identi
 
 ---
 
-## 2. Endpoints d'Authentification
+## 2. Intégration dans votre Application
 
-Utilisez ces URLs pour déclencher le processus de connexion :
+### A. Déclencher la Connexion
+Utilisez l'une des URLs suivantes pour rediriger l'utilisateur vers notre service :
 
 *   **Google :** `https://authentificator.vercel.app/api/auth/google`
 *   **GitHub :** `https://authentificator.vercel.app/api/auth/github`
 
-### Paramètres de requête requis :
+**Paramètres de requête requis :**
 
 | Paramètre | Description |
 | :--- | :--- |
-| `app` | Le nom de votre application (pour le suivi administrateur). |
-| `redirect_uri` | L'URL complète de votre application où l'utilisateur sera redirigé après succès/échec. |
+| `app` | Le nom de votre application (pour le suivi). |
+| `redirect_uri` | L'URL complète de votre application où l'utilisateur sera redirigé après succès/échec (encodée). |
 
-*Exemple d'URL de redirection :*
-`https://authentificator.vercel.app/api/auth/google?app=MonSuperProjet&redirect_uri=https://mon-app.com/callback`
+*Exemple de redirection :*
+`https://authentificator.vercel.app/api/auth/google?app=MonApp&redirect_uri=https%3A%2F%2Fmon-app.com%2Fcallback`
 
----
-
-## 3. Réception de la Réponse (Callback)
-
+### B. Gestion du Callback
 Authentifictor redirige vers votre `redirect_uri` en ajoutant les paramètres suivants :
 
 *   `status` : `success` ou `failure`.
 *   `token` : Un **JWT** valide si le statut est `success`.
-*   `app` : Le nom de votre application.
 
-*Exemple d'URL de callback :*
-`https://mon-app.com/callback?status=success&app=MonSuperProjet&token=eyJhbGciOiJIUzI1...`
+Vous devez récupérer ces paramètres, valider le jeton, et gérer la session utilisateur dans votre application.
+
+### C. Exemples d'implémentation (JavaScript)
+
+**1. Déclencher la Connexion :**
+Vous pouvez créer des fonctions dédiées pour chaque fournisseur :
+
+```javascript
+const loginWithGoogle = () => {
+  const serviceUrl = "https://authentificator.vercel.app/api/auth/google";
+  const params = new URLSearchParams({
+    app: "NomDeVotreApp",
+    redirect_uri: encodeURIComponent("https://votre-site.com/callback")
+  });
+  window.location.href = `${serviceUrl}?${params.toString()}`;
+};
+
+const loginWithGitHub = () => {
+  const serviceUrl = "https://authentificator.vercel.app/api/auth/github";
+  const params = new URLSearchParams({
+    app: "NomDeVotreApp",
+    redirect_uri: encodeURIComponent("https://votre-site.com/callback")
+  });
+  window.location.href = `${serviceUrl}?${params.toString()}`;
+};
+```
+
+**2. Gérer le Callback :**
+```javascript
+// Dans votre page de callback
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('status');
+  const token = params.get('token');
+
+  if (status === 'success' && token) {
+    // Stocker le JWT pour vos futures requêtes
+    localStorage.setItem('auth_token', token);
+    alert('Authentification réussie !');
+  } else {
+    alert('Erreur d\'authentification');
+  }
+}, []);
+```
 
 ---
 
-## 4. Structure du Jeton JWT
+## 3. Sécurisation des Données (Firebase Firestore)
 
-Le JWT contient le payload suivant, lisible côté client et vérifiable côté serveur via votre `JWT_SECRET` :
+Pour garantir la confidentialité et l'intégrité de vos données, déployez les règles de sécurité Firestore suivantes dans votre console Firebase pour assurer que les utilisateurs ne peuvent manipuler que leurs propres données :
 
-```json
-{
-  "id": "cuid_de_l_utilisateur",
-  "email": "utilisateur@exemple.com",
-  "name": "Nom de l'utilisateur",
-  "app": "Nom de l'application",
-  "iat": 1718294400,
-  "exp": 1718298000
+```firestore
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null;
+    }
+
+    match /videos/{videoId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+
+    // ... (Appliquez des règles similaires pour vos autres collections)
+  }
 }
 ```
 
 ---
 
-## 5. Exemple d'Intégration (React/React Native)
-
-### A. Déclencher la Connexion
-```javascript
-const loginWith = (provider) => {
-  const serviceUrl = "https://authentificator.vercel.app";
-  const appName = "AfroVibe"; // Nom configuré
-  // Utilisez un schéma d'URL profond (Deep Link) pour le mobile
-  const redirectUri = "afrovibe://auth/callback"; 
-  
-  window.location.href = `${serviceUrl}/api/auth/${provider}?app=${appName}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-};
-```
-
-### B. Gérer le Callback
-Dans votre composant de route `/auth/callback` :
-
-```javascript
-import { useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-
-const AuthCallback = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const status = searchParams.get('status');
-    const token = searchParams.get('token');
-
-    if (status === 'success' && token) {
-      // 1. Stocker le token pour vos futures requêtes API
-      localStorage.setItem('auth_token', token);
-      
-      // 2. Rediriger vers votre application
-      navigate('/dashboard');
-    } else {
-      navigate('/login-failed');
-    }
-  }, [searchParams, navigate]);
-
-  return <div>Authentification en cours...</div>;
-};
-```
-
----
-
-## 6. Administration
+## 4. Administration
 
 Gérez vos applications et surveillez les logs de connexion en temps réel sur la console d'administration :
 [https://authentificator.vercel.app/admin](https://authentificator.vercel.app/admin)
