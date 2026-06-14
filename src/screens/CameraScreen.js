@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
   StatusBar,
   Alert,
   AppState,
@@ -24,8 +23,6 @@ import { useIsFocused } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
-
-const { width } = Dimensions.get('window');
 
 export const CameraScreen = ({ navigation }) => {
   // Check if library is loaded
@@ -50,7 +47,6 @@ export const CameraScreen = ({ navigation }) => {
   }, [entranceAnim]);
 
   const camera = useRef(null);
-  const recorderRef = useRef(null);
 
   const isFocused = useIsFocused();
   const [appState, setAppState] = useState(AppState.currentState);
@@ -77,9 +73,7 @@ export const CameraScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    return () => {
-      recorderRef.current = null;
-    };
+    return () => undefined;
   }, []);
 
   useEffect(() => {
@@ -135,7 +129,6 @@ export const CameraScreen = ({ navigation }) => {
           console.log('Recording finished:', video.path);
           setRecording(false);
           setLoading(false);
-          recorderRef.current = null;
           const mediaUri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
           navigation.navigate('VideoEdit', { mediaUri, mediaType: 'video' });
         },
@@ -143,7 +136,6 @@ export const CameraScreen = ({ navigation }) => {
           console.error('Recording error:', error);
           setRecording(false);
           setLoading(false);
-          recorderRef.current = null;
           Alert.alert('Erreur', 'L\'enregistrement s\'est arrêté.');
         },
       });
@@ -151,7 +143,6 @@ export const CameraScreen = ({ navigation }) => {
       console.error('Start recording error:', e);
       setRecording(false);
       setLoading(false);
-      recorderRef.current = null;
       Alert.alert('Erreur', 'Impossible de démarrer l\'enregistrement.');
     }
   };
