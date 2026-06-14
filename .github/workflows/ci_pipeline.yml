@@ -1,0 +1,53 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_path: android/app/build/outputs/apk/release/app-release.apk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build Android
+        run: npm run build:android
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: android/app/build/outputs/apk/release/app-release.apk
+
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Pandoc
+        run: sudo apt-get install -y pandoc
+      - name: Generate PDFs
+        run: |
+          mkdir -p dist/docs
+          for file in *.md; do
+            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --metadata title="${file%.md}"
+          done
+          cp logo/logo.png dist/docs/
+      - name: Upload Docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-docs
+          path: dist/docs/
