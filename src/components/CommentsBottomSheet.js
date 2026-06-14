@@ -1,5 +1,5 @@
 // Comments Bottom Sheet Component
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { 
   View, 
   Text, 
@@ -15,11 +15,31 @@ import {
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from './SVGIcon';
-import { dbService, authService } from '../services/apiService';
+import { dbService, authService, configService } from '../services/apiService';
 import outboxService from '../services/outboxService';
 import Haptics from '../utils/haptics';
 
 const { height } = Dimensions.get('window');
+
+const CommentItem = memo(({ item }) => {
+  const avatarSource = item.user?.avatar
+    ? { uri: configService.fixMediaUrl(item.user.avatar) }
+    : require('../assets/images/logo.jpg');
+
+  return (
+    <View style={styles.commentItem}>
+      <Image source={avatarSource} style={styles.avatar} />
+      <View style={styles.commentContent}>
+        <Text style={styles.username}>@{item.user?.username || 'user'}</Text>
+        <Text style={styles.commentText}>{item.text}</Text>
+        <Text style={styles.timeText}>{item.time || '1m'}</Text>
+      </View>
+      <TouchableOpacity style={styles.likeCommentBtn}>
+        <SVGIcon name="heart" size={12} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
   const [comments, setComments] = useState([]);
@@ -77,22 +97,9 @@ export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
     }
   };
 
-  const renderCommentItem = ({ item }) => (
-    <View style={styles.commentItem}>
-      <Image 
-        source={require('../assets/images/logo.jpg')} // Fallback image setup
-        style={styles.avatar} 
-      />
-      <View style={styles.commentContent}>
-        <Text style={styles.username}>@{item.user?.username || 'user'}</Text>
-        <Text style={styles.commentText}>{item.text}</Text>
-        <Text style={styles.timeText}>{item.time || '1m'}</Text>
-      </View>
-      <TouchableOpacity style={styles.likeCommentBtn}>
-        <SVGIcon name="heart" size={12} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-    </View>
-  );
+  const renderCommentItem = useCallback(({ item }) => (
+    <CommentItem item={item} />
+  ), []);
 
   return (
     <Modal
@@ -122,6 +129,11 @@ export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
             keyExtractor={item => item.id}
             renderItem={renderCommentItem}
             contentContainerStyle={styles.listContent}
+            removeClippedSubviews={true}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={6}
+            keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>Soyez le premier à commenter ! 🔥</Text>

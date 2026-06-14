@@ -34,6 +34,7 @@ export const VideoPlayerView = ({
   const pauseScale = useRef(new Animated.Value(0)).current;
   const pauseOpacity = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
+  const tapTimeoutRef = useRef(null);
   const wasForcePaused = useRef(forcePaused);
 
   const isPaused = forcePaused || userPaused;
@@ -47,6 +48,12 @@ export const VideoPlayerView = ({
     }
     wasForcePaused.current = forcePaused;
   }, [forcePaused]);
+
+  useEffect(() => () => {
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+  }, []);
 
   const fixedUrl = useMemo(() => configService.fixMediaUrl(videoUrl), [videoUrl]);
   const fixedThumbnail = useMemo(() => configService.fixMediaUrl(thumbnail), [thumbnail]);
@@ -99,9 +106,14 @@ export const VideoPlayerView = ({
     }
 
     lastTap.current = now;
-    setTimeout(() => {
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+
+    tapTimeoutRef.current = setTimeout(() => {
       if (lastTap.current !== now) return;
       lastTap.current = 0;
+      tapTimeoutRef.current = null;
 
       // Toggle user pause state and trigger animation
       setUserPaused((prev) => {
@@ -160,6 +172,10 @@ export const VideoPlayerView = ({
           playInBackground={false}
           playWhenInactive={false}
           controls={false}
+          onLoadStart={() => {
+            setLoading(true);
+            setHasError(false);
+          }}
           onBuffer={({ isBuffering }) => setLoading(isBuffering)}
           onLoad={() => setLoading(false)}
           onError={(err) => {
@@ -177,7 +193,7 @@ export const VideoPlayerView = ({
           }}
           preferredForwardBufferDuration={5}
           preventsDisplaySleepDuringVideoPlayback={true}
-          progressUpdateInterval={250.0}
+          progressUpdateInterval={1000.0}
         />
       )}
 

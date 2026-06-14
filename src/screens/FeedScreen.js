@@ -7,19 +7,14 @@ import {
   FlatList,
   Dimensions,
   TouchableOpacity,
-  Pressable,
   Image,
   Animated,
   Easing,
   StatusBar,
   RefreshControl,
-  Share,
-  Alert,
-  LayoutAnimation,
   Platform
 } from 'react-native';
 import { useIsFocused, useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import VideoPlayerView from '../components/VideoPlayerView';
@@ -77,7 +72,7 @@ const SpinVinyl = memo(({ isPlaying }) => {
   );
 });
 
-const VideoItem = memo(({
+const VideoItemComponent = ({
   item,
   index,
   isFocused,
@@ -228,7 +223,25 @@ const VideoItem = memo(({
       </Animated.View>
     </View>
   );
-});
+};
+
+const areVideoItemPropsEqual = (prevProps, nextProps) => {
+  if (prevProps.item !== nextProps.item) return false;
+  if (prevProps.isFocused !== nextProps.isFocused) return false;
+  if (prevProps.commentsVisible !== nextProps.commentsVisible) return false;
+
+  const prevWasVisible = prevProps.index === prevProps.currentVisibleIndex;
+  const nextIsVisible = nextProps.index === nextProps.currentVisibleIndex;
+  if (prevWasVisible !== nextIsVisible) return false;
+
+  if (nextIsVisible && prevProps.userPaused !== nextProps.userPaused) {
+    return false;
+  }
+
+  return true;
+};
+
+const VideoItem = memo(VideoItemComponent, areVideoItemPropsEqual);
 
 export const FeedScreen = ({ route, navigation }) => {
   const [videos, setVideos] = useState([]);
@@ -250,10 +263,8 @@ export const FeedScreen = ({ route, navigation }) => {
   } = useVideoActions(setVideos);
 
   const isFocused = useIsFocused();
-  const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
   const isReadyToScroll = useRef(false);
-  const lastTapRef = useRef(0);
 
   const initialVideoId = route?.params?.initialVideoId;
 

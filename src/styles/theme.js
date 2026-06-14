@@ -3,11 +3,15 @@
 export const COLORS = {
   background: '#13091B',     // Deep dark obsidian purple
   cardBackground: '#1F0E31', // Warm dark purple for cards/modals
+  surface: '#24123A',        // Elevated card surface
+  surfaceAlt: '#2A1542',     // Hover/pressed elevated surface
   primary: '#FF5E00',        // Vibrant tribal orange
   secondary: '#E60067',      // Electric magenta/pink
   accent: '#FFAA00',         // Sun gold yellow
+  brandDeep: '#0B0612',      // Deep background used for premium panels
   text: '#FFFFFF',           // Crisp white for main content
   textSecondary: '#B3B3B3',  // Muted light grey for subtext
+  textMuted: '#8C7AA5',      // Softer muted text for tertiary metadata
   border: '#2D1845',         // Subtle border purple
   success: '#00E676',        // Alert green
   error: '#FF1744',          // Alert red
@@ -15,6 +19,7 @@ export const COLORS = {
   black: '#000000',
   glass: 'rgba(31, 14, 49, 0.7)',
   blue: '#00B0FF',           // Vivid blue (used for verify/sync)
+  overlay: 'rgba(8, 4, 14, 0.72)',
 };
 
 export const GRADIENTS = {
@@ -22,6 +27,7 @@ export const GRADIENTS = {
   accent: [COLORS.accent, COLORS.primary],          // Plus button & Highlights
   dark: [COLORS.cardBackground, COLORS.background], // Page transitions
   traditional: ['#FF5E00', '#FFAA00', '#E60067'],   // Triple-blend tribal gradient
+  hero: ['#13091B', '#1F0E31', '#0B0612'],
 };
 
 export const FONTS = {
