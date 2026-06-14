@@ -1,5 +1,5 @@
 // Afro Vibe Application Entry Point
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
@@ -8,8 +8,11 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { initNotifications, showNotification } from './src/services/notificationService';
 import { configService, authService, dbService } from './src/services/apiService';
 import outboxService from './src/services/outboxService';
+import LoadingScreen from './src/components/LoadingScreen';
 
 function App() {
+  const [appReady, setAppReady] = useState(false);
+
   useEffect(() => {
     const initialize = async () => {
       try {
@@ -17,6 +20,8 @@ function App() {
         await initNotifications();
       } catch (error) {
         console.error('Erreur lors de l\'initialisation de l\'app:', error);
+      } finally {
+        setAppReady(true);
       }
     };
 
@@ -63,7 +68,14 @@ function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Provider store={store}>
         <SafeAreaProvider>
-          <AppNavigator />
+          {appReady ? (
+            <AppNavigator />
+          ) : (
+            <LoadingScreen
+              title="Afro Vibe"
+              subtitle="Preparation du theme, des services et de votre session..."
+            />
+          )}
         </SafeAreaProvider>
       </Provider>
     </GestureHandlerRootView>

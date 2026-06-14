@@ -124,7 +124,7 @@ const VideoItemComponent = ({
         thumbnail={item.thumbnail}
         enableTapControls={canTapVideo}
         showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
-        onSingleTap={() => onTogglePause(!userPaused)}
+        onSingleTap={onTogglePause}
         onDoubleTap={() => handleLike(item.id)}
       />
 

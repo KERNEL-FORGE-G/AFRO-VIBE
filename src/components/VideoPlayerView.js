@@ -119,9 +119,9 @@ export const VideoPlayerView = ({
       setUserPaused((prev) => {
         const next = !prev;
         triggerPauseAnim(next);
+        onSingleTap?.(next);
         return next;
       });
-      onSingleTap?.();
     }, DOUBLE_PRESS_DELAY);
   }, [heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
 
