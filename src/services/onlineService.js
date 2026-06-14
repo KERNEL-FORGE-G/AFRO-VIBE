@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithCredential,
+  signInWithCustomToken,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   GoogleAuthProvider,
@@ -110,7 +111,7 @@ const fetchFirestoreUser = async (userId) => {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 };
 
-const ensureUserProfile = async (firebaseUser, username) => {
+const ensureUserProfile = async (firebaseUser, username, token = null) => {
   const db = getFirestoreDb();
   const ref = doc(db, 'users', firebaseUser.uid);
   const snap = await getDoc(ref);
@@ -127,6 +128,7 @@ const ensureUserProfile = async (firebaseUser, username) => {
       bio: '',
       isVerified: false,
       created_at: new Date().toISOString(),
+      authToken: token, // AJOUTÉ
     };
     await setDoc(ref, profile);
     return toClientUser(profile);
@@ -233,15 +235,15 @@ export const onlineAuthService = {
 
         if (result.type === 'success') {
           const params = new URLSearchParams(result.url.split('?')[1]);
-          const token = params.get('token');
+          const customToken = params.get('customToken');
           const status = params.get('status');
 
-          if (status === 'success' && token) {
-             const userPayload = decodeJwt(token);
-             if (!userPayload) throw new Error('Token invalide');
+          if (status === 'success' && customToken) {
+             const auth = getFirebaseAuth();
+             await signInWithCustomToken(auth, customToken);
              
              // Ensure user exists in Firestore
-             const user = await ensureUserProfile({ uid: userPayload.id, email: userPayload.email }, userPayload.name);
+             const user = await ensureUserProfile(auth.currentUser, null, null);
              triggerAuthListeners(user);
              return { success: true };
           }

@@ -1,47 +1,61 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Fonction helper pour valider le jeton personnalisé
+    function isValidToken(token) {
+      return token != null && token == get(/databases/$(database)/documents/config/auth).data.secretToken;
+    }
+
+    // Fonction helper pour vérifier si l'utilisateur est authentifié nativement
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper pour valider l'accès en écriture
+    function canWrite(token, uid) {
+      return isValidToken(token) || (isAuthenticated() && (uid == null || request.auth.uid == uid));
+    }
 
     match /users/{userId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Allow user to update own profile, and allow server/client to update follow counts
-      allow update: if request.auth != null;
+      allow read: if true; // Option B: Lecture publique
+      allow write: if canWrite(request.resource.data.authToken, userId);
     }
 
     match /videos/{videoId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow write: if canWrite(request.resource.data.authToken, null);
     }
-
+    
     match /likes/{likeId} {
       allow read: if true;
-      allow write: if request.auth != null && (likeId.split('_')[1] == request.auth.uid);
+      allow write: if canWrite(request.resource.data.authToken, null);
     }
 
     match /follows/{followId} {
       allow read: if true;
-      allow write: if request.auth != null && (followId.split('_')[0] == request.auth.uid);
+      allow write: if canWrite(request.resource.data.authToken, null);
     }
 
     match /bookmarks/{bookmarkId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if true; // Option B: Lecture publique
+      allow write: if canWrite(request.resource.data.authToken, null);
     }
 
     match /messages/{msgId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      allow read: if true; // Option B: Lecture publique
+      allow create: if canWrite(request.resource.data.authToken, null);
     }
 
     match /notifications/{notifId} {
-      allow read: if request.auth != null
-        && resource.data.user_id == request.auth.uid;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null
-        && resource.data.user_id == request.auth.uid;
+      allow read: if true; // Option B: Lecture publique
+      allow create: if canWrite(request.resource.data.authToken, null);
+      allow update, delete: if canWrite(request.resource.data.authToken, null);
+    }
+
+    // Protection de la config
+    match /config/auth {
+      allow read, write: if false; // Personne ne peut lire le secret
     }
   }
 }
