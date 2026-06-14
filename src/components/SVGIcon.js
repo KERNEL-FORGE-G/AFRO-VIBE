@@ -95,6 +95,13 @@ export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
           <Path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill={color} />
         </Svg>
       );
+
+    case 'play':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M8 5.14v13.72c0 .78.84 1.26 1.5.86l10-6.86a1 1 0 0 0 0-1.72l-10-6.86A1 1 0 0 0 8 5.14z" fill={color} />
+        </Svg>
+      );
       
     case 'search':
       return (

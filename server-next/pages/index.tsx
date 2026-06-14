@@ -1,66 +1,139 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import {
+  Gauge,
   LayoutDashboard,
+  Loader2,
+  Palette,
+  Play,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  TrendingUp,
   Users,
   Video,
-  BarChart3,
-  Settings,
-  TrendingUp,
-  Play,
-  ArrowUpRight,
   Zap,
-  Loader2,
-  Music,
-  Trash2
 } from 'lucide-react';
-import { db } from '../lib/firebase';
-import { collection, getDocs, query, orderBy, limit, deleteDoc, doc } from 'firebase/firestore';
-import { motion, AnimatePresence } from 'framer-motion';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getCountFromServer,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+} from 'firebase/firestore';
+import { AnimatePresence, motion } from 'framer-motion';
+import { db, firebaseConfigMissingKeys, firebaseConfigReady } from '../lib/firebase';
+
+type Stats = {
+  users: number;
+  videos: number;
+  recentLikes: number;
+  revenue: string;
+};
+
+type VideoRecord = {
+  id: string;
+  caption?: string;
+  user_id?: string;
+  views?: number;
+  likes?: number;
+};
+
+type CreatorRecord = {
+  id: string;
+  username?: string;
+  fullName?: string;
+  followers?: number;
+  following?: number;
+};
+
+const TABS = [
+  { id: 'overview', label: 'Vue', icon: LayoutDashboard },
+  { id: 'users', label: 'Createurs', icon: Users },
+  { id: 'videos', label: 'Contenu', icon: Video },
+  { id: 'settings', label: 'Studio', icon: Settings },
+] as const;
+
+const chartSeries = [26, 38, 34, 48, 52, 64, 58, 72, 68, 84, 76, 96];
 
 export default function AfroVibeCommandCenter() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     users: 0,
     videos: 0,
-    likes: 0,
-    revenue: '0'
+    recentLikes: 0,
+    revenue: '0.00',
   });
-  const [recentVideos, setVideos] = useState<any[]>([]);
-  const [topCreators, setCreators] = useState<any[]>([]);
+  const [recentVideos, setVideos] = useState<VideoRecord[]>([]);
+  const [topCreators, setCreators] = useState<CreatorRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const fetchRealData = async () => {
+  const fetchTopCreators = useCallback(async () => {
+    if (!db) return [];
+
+    try {
+      const topCreatorsQuery = query(collection(db, 'users'), orderBy('followers', 'desc'), limit(6));
+      const topCreatorsSnap = await getDocs(topCreatorsQuery);
+      return topCreatorsSnap.docs.map((entry) => ({ id: entry.id, ...entry.data() })) as CreatorRecord[];
+    } catch (queryError) {
+      const fallbackSnap = await getDocs(collection(db, 'users'));
+      const fallbackUsers = fallbackSnap.docs.map((entry) => ({ id: entry.id, ...entry.data() })) as CreatorRecord[];
+      return fallbackUsers
+        .sort((a, b) => (b.followers || 0) - (a.followers || 0))
+        .slice(0, 6);
+    }
+  }, []);
+
+  const fetchRealData = useCallback(async () => {
+    if (!firebaseConfigReady || !db) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-      const usersSnap = await getDocs(collection(db, 'users'));
-      const usersList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const videosQuery = query(collection(db, 'videos'), orderBy('created_at', 'desc'));
-      const videosSnap = await getDocs(videosQuery);
-      const videosList = videosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const totalLikes = videosList.reduce((acc, v: any) => acc + (v.likes || 0), 0);
+      setError('');
+
+      const [usersCountSnap, videosCountSnap, videosSnap, creatorsList] = await Promise.all([
+        getCountFromServer(collection(db, 'users')),
+        getCountFromServer(collection(db, 'videos')),
+        getDocs(query(collection(db, 'videos'), orderBy('created_at', 'desc'), limit(12))),
+        fetchTopCreators(),
+      ]);
+
+      const videosList = videosSnap.docs.map((entry) => ({ id: entry.id, ...entry.data() })) as VideoRecord[];
+      const recentLikes = videosList.reduce((acc, video) => acc + Number(video.likes || 0), 0);
+
       setStats({
-        users: usersList.length,
-        videos: videosList.length,
-        likes: totalLikes,
-        revenue: (videosList.length * 0.5).toFixed(2)
+        users: usersCountSnap.data().count,
+        videos: videosCountSnap.data().count,
+        recentLikes,
+        revenue: (videosCountSnap.data().count * 0.5).toFixed(2),
       });
       setVideos(videosList);
-      const sortedCreators = [...usersList].sort((a: any, b: any) => (b.followers || 0) - (a.followers || 0));
-      setCreators(sortedCreators.slice(0, 10));
+      setCreators(creatorsList);
     } catch (err) {
       console.error('Error fetching data from Firestore:', err);
+      setError('Impossible de charger les donnees temps reel.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchTopCreators]);
 
   useEffect(() => {
     fetchRealData();
-  }, []);
+  }, [fetchRealData]);
 
-  const handleDeleteVideo = async (videoId: string) => {
-    if (confirm('Voulez-vous vraiment supprimer cette vidéo ?')) {
+  const handleDeleteVideo = useCallback(async (videoId: string) => {
+    if (!db) return;
+
+    if (confirm('Voulez-vous vraiment supprimer cette video ?')) {
       try {
         await deleteDoc(doc(db, 'videos', videoId));
         fetchRealData();
@@ -68,182 +141,479 @@ export default function AfroVibeCommandCenter() {
         alert('Erreur lors de la suppression');
       }
     }
-  };
+  }, [fetchRealData]);
+
+  const activeTabLabel = useMemo(
+    () => TABS.find((tab) => tab.id === activeTab)?.label || 'Vue',
+    [activeTab],
+  );
+
+  const overviewCards = useMemo(() => ([
+    {
+      label: 'Createurs',
+      value: stats.users,
+      meta: 'Comptes detectes',
+      icon: Users,
+      accent: 'text-[#FF5E00]',
+      iconBg: 'bg-[#FF5E00]/12',
+    },
+    {
+      label: 'Videos',
+      value: stats.videos,
+      meta: 'Posts publies',
+      icon: Video,
+      accent: 'text-[#E60067]',
+      iconBg: 'bg-[#E60067]/12',
+    },
+    {
+      label: 'Likes recents',
+      value: stats.recentLikes,
+      meta: 'Lot recent',
+      icon: Sparkles,
+      accent: 'text-[#FFAA00]',
+      iconBg: 'bg-[#FFAA00]/12',
+    },
+  ]), [stats]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-[#FF5E00]/30 overflow-x-hidden font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-[#09050E] text-white selection:bg-[#FF5E00]/30 font-sans">
       <Head>
         <title>AFRO VIBE | Command Center</title>
-        <link rel="icon" href="/logo.png" />
+        <meta name="theme-color" content="#13091B" />
       </Head>
 
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 2 }} className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#FF5E00]/10 blur-[150px] rounded-full animate-pulse" />
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 2, delay: 0.5 }} className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#E60067]/10 blur-[150px] rounded-full" />
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,94,0,0.18),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(230,0,103,0.16),transparent_26%),linear-gradient(180deg,#09050E_0%,#13091B_50%,#09050E_100%)]" />
       </div>
 
       <div className="relative z-10 flex min-h-screen">
-        <motion.aside initial={{ x: -100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="w-20 lg:w-72 flex flex-col items-center lg:items-stretch py-8 border-r border-white/5 bg-[#0F0916]/80 backdrop-blur-3xl sticky top-0 h-screen transition-all">
-          <div className="px-6 mb-12 flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#FF5E00] to-[#E60067] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(255,94,0,0.3)]">
-              <span className="font-black text-xl italic text-white">V</span>
+        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-r border-white/8 bg-[#100917]/88 px-6 py-8 backdrop-blur-xl lg:flex lg:flex-col">
+          <div className="mb-12 flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF5E00] via-[#FFAA00] to-[#E60067] shadow-[0_0_30px_rgba(255,94,0,0.25)]">
+              <span className="text-xl font-black italic text-white">V</span>
             </div>
-            <span className="hidden lg:block text-2xl font-black tracking-tighter uppercase italic text-white">Afro Vibe</span>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/50">Brand Console</p>
+              <h1 className="text-2xl font-black uppercase italic tracking-tight text-white">Afro Vibe</h1>
+            </div>
           </div>
 
-          <nav className="flex-1 px-4 space-y-2">
-            <SidebarItem icon={<LayoutDashboard size={20} />} label="Command" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
-            <SidebarItem icon={<Users size={20} />} label="Creators" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
-            <SidebarItem icon={<Video size={20} />} label="Content" active={activeTab === 'videos'} onClick={() => setActiveTab('videos')} />
+          <nav className="space-y-2">
+            {TABS.map((tab) => (
+              <SidebarItem
+                key={tab.id}
+                icon={<tab.icon size={18} />}
+                label={tab.label}
+                active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+              />
+            ))}
           </nav>
 
-          <div className="px-4 mt-auto">
-            <SidebarItem icon={<Settings size={20} />} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+          <div className="mt-auto rounded-3xl border border-white/8 bg-white/[0.03] p-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/45">Direction</p>
+            <p className="text-sm leading-6 text-white/70">
+              Palette sombre premium, accents orange et magenta, surfaces plus nettes et lecture rapide.
+            </p>
           </div>
-        </motion.aside>
+        </aside>
 
-        <main className="flex-1 p-6 lg:p-12 overflow-y-auto">
-          <motion.header initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+        <main className="flex-1 overflow-y-auto p-6 lg:p-10">
+          <motion.header
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-10 flex flex-col gap-6 rounded-[32px] border border-white/8 bg-white/[0.035] p-6 backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between"
+          >
             <div>
-              <div className="flex items-center gap-2 text-[#E60067] mb-2 text-white">
-                <Zap size={14} className="fill-current text-[#E60067]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Live Firebase Data</span>
+              <div className="mb-3 flex items-center gap-2 text-[#E60067]">
+                <Zap size={14} className="text-[#E60067]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.32em] text-white/70">Live Firebase Data</span>
               </div>
-              <h1 className="text-4xl lg:text-6xl font-black tracking-tightest uppercase italic leading-none text-white">
-                {activeTab === 'overview' ? 'Real-time Vibrations' : activeTab.toUpperCase()}
-              </h1>
+              <h2 className="text-4xl font-black uppercase italic leading-none tracking-tight text-white lg:text-5xl">
+                {activeTab === 'overview' ? 'Command Center' : activeTabLabel}
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/60">
+                Interface epuree, plus rapide et plus lisible pour piloter la plateforme sans surcharge visuelle.
+              </p>
             </div>
-            <button onClick={fetchRealData} className="p-3 bg-white/5 rounded-full hover:bg-white/10 transition-all">
-              {loading ? <Loader2 className="animate-spin text-[#FF5E00]" size={24} /> : <TrendingUp size={24} />}
-            </button>
+
+            <div className="flex flex-wrap gap-3">
+              <QuickPill icon={Gauge} label="Performance" />
+              <QuickPill icon={Palette} label="Brand Theme" />
+              <QuickPill icon={ShieldCheck} label="Stable Data" />
+              <button
+                onClick={fetchRealData}
+                disabled={!firebaseConfigReady}
+                className="inline-flex items-center gap-2 rounded-2xl border border-[#FF5E00]/30 bg-[#FF5E00]/10 px-4 py-3 text-sm font-bold text-[#FFAA00] transition hover:bg-[#FF5E00]/16 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                Actualiser
+              </button>
+            </div>
           </motion.header>
+
+          {!firebaseConfigReady ? (
+            <Panel
+              title="Configuration requise"
+              subtitle="Variables .env manquantes pour le dashboard"
+            >
+              <div className="space-y-3 text-sm text-white/75">
+                <p>Ajoute ces variables dans `server-next/.env.local` :</p>
+                <div className="rounded-2xl border border-white/8 bg-black/20 p-4 font-mono text-xs leading-6 text-white/80">
+                  {firebaseConfigMissingKeys.map((entry) => (
+                    <div key={entry}>{entry}=...</div>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+          ) : null}
+
+          {error ? (
+            <div className="mb-8 rounded-2xl border border-red-500/20 bg-red-500/8 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
 
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
-              <motion.div key="overview" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <div className="grid grid-cols-12 gap-6 mb-12">
-                  <div className="col-span-12 lg:col-span-8 p-1 rounded-[32px] bg-gradient-to-br from-white/10 to-transparent border border-white/5 shadow-2xl overflow-hidden bg-[#0F0916]">
-                    <div className="p-8 flex flex-col h-full">
-                      <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-[#FF5E00]/10 border border-[#FF5E00]/20 flex items-center justify-center text-[#FF5E00]"><BarChart3 size={24} /></div>
-                          <div><h3 className="text-xl font-black tracking-tight uppercase italic">Platform Health</h3><p className="text-xs text-white/40">Engagement stats</p></div>
-                        </div>
-                        <div className="text-right"><div className="text-3xl font-black text-[#FF5E00]">{stats.users} Users</div><div className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Active Creators</div></div>
+              <motion.section
+                key="overview"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -18 }}
+                className="space-y-6"
+              >
+                <div className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
+                  <div className="rounded-[32px] border border-white/8 bg-[#12091A]/90 p-6 shadow-[0_12px_50px_rgba(0,0,0,0.28)]">
+                    <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/45">Signal plateforme</p>
+                        <h3 className="text-2xl font-black uppercase italic text-white">Croissance lisible</h3>
                       </div>
-                      <div className="flex-1 flex items-end gap-1 min-h-[200px] py-4">
-                        {[20, 40, 30, 70, 50, 60, 40, 90, 70, 80, 50, 100].map((h, index) => (
-                          <motion.div key={index} initial={{ height: 0 }} animate={{ height: `${h}%` }} transition={{ delay: 0.5 + index * 0.05 }} className="flex-1 bg-gradient-to-t from-[#FF5E00]/40 to-[#FF5E00] rounded-t-lg" style={{ opacity: 0.1 + (index * 0.08) }} />
-                        ))}
+                      <div className="rounded-2xl border border-[#FF5E00]/20 bg-[#FF5E00]/10 p-3 text-[#FF5E00]">
+                        <TrendingUp size={20} />
                       </div>
                     </div>
+
+                    <div className="flex min-h-[240px] items-end gap-2">
+                      {chartSeries.map((value, index) => (
+                        <div key={index} className="flex flex-1 flex-col items-center gap-3">
+                          <div
+                            className="w-full rounded-t-2xl bg-gradient-to-t from-[#FF5E00]/35 via-[#FF5E00]/70 to-[#FFAA00]"
+                            style={{ height: `${value}%`, opacity: 0.45 + index * 0.03 }}
+                          />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/35">
+                            {index + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="col-span-12 lg:col-span-4 grid grid-rows-2 gap-6">
-                    <StatCard label="Total Videos" value={stats.videos} subValue="Uploaded" icon={<Video />} color="#E60067" delay={0.1} />
-                    <StatCard label="Revenue" value={`$${stats.revenue}`} subValue="Estimated" icon={<Zap />} color="#FFAA00" delay={0.2} />
+
+                  <div className="grid gap-6 md:grid-cols-3 xl:grid-cols-1">
+                    {overviewCards.map((card) => (
+                      <StatCard
+                        key={card.label}
+                        label={card.label}
+                        value={card.value}
+                        subValue={card.meta}
+                        accent={card.accent}
+                        iconBg={card.iconBg}
+                        icon={<card.icon size={18} />}
+                      />
+                    ))}
                   </div>
                 </div>
-              </motion.div>
+
+                <div className="grid gap-6 xl:grid-cols-2">
+                  <Panel title="Createurs en vue" subtitle="Top comptes par audience">
+                    <div className="space-y-4">
+                      {topCreators.map((creator) => (
+                        <CreatorRow key={creator.id} creator={creator} />
+                      ))}
+                    </div>
+                  </Panel>
+
+                  <Panel title="Contenu recent" subtitle="Dernieres videos detectees">
+                    <div className="space-y-4">
+                      {recentVideos.map((video) => (
+                        <ContentRow
+                          key={video.id}
+                          id={video.id}
+                          title={video.caption || 'Sans titre'}
+                          user={video.user_id || 'inconnu'}
+                          reach={video.views || 0}
+                          likes={video.likes || 0}
+                          onDelete={() => handleDeleteVideo(video.id)}
+                        />
+                      ))}
+                    </div>
+                  </Panel>
+                </div>
+              </motion.section>
             )}
 
             {activeTab === 'videos' && (
-              <motion.div key="content" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-12">
-                <div className="p-8 rounded-[32px] bg-white/[0.02] backdrop-blur-md border border-white/5">
-                  <h3 className="text-xl font-black italic mb-6">Content Management</h3>
+              <motion.section
+                key="videos"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -18 }}
+              >
+                <Panel title="Gestion du contenu" subtitle="Suppression rapide et lecture des signaux clefs">
                   <div className="space-y-4">
-                    {recentVideos.length > 0 ? recentVideos.map((video, idx) => (
-                      <ContentRow key={video.id} id={video.id} index={idx} title={video.caption || "Untitled"} user={video.user_id} reach={video.views || 0} likes={video.likes || 0} onDelete={() => handleDeleteVideo(video.id)} />
-                    )) : <p className="text-white/40 text-sm italic">No videos found.</p>}
+                    {recentVideos.length > 0 ? (
+                      recentVideos.map((video) => (
+                        <ContentRow
+                          key={video.id}
+                          id={video.id}
+                          title={video.caption || 'Sans titre'}
+                          user={video.user_id || 'inconnu'}
+                          reach={video.views || 0}
+                          likes={video.likes || 0}
+                          onDelete={() => handleDeleteVideo(video.id)}
+                        />
+                      ))
+                    ) : (
+                      <EmptyState label="Aucune video recente disponible." />
+                    )}
                   </div>
-                </div>
-              </motion.div>
+                </Panel>
+              </motion.section>
             )}
 
             {activeTab === 'users' && (
-               <motion.div key="creators" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="mb-12">
-                 <div className="p-8 rounded-[32px] bg-[#1F0E31]/40 border border-white/5">
-                    <h3 className="text-xl font-black italic mb-6">User Database</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {topCreators.map((creator, idx) => (
-                        <motion.div key={creator.id} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.05 * idx }} className="bg-white/5 p-6 rounded-3xl flex items-center gap-6">
-                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FF5E00] to-[#E60067] flex items-center justify-center font-black text-2xl text-white">
-                            {creator.username?.[0]?.toUpperCase() || 'U'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-lg text-[#FF5E00]">@{creator.username}</p>
-                            <p className="text-sm text-white/60">{creator.fullName}</p>
-                            <div className="flex gap-4 mt-2">
-                               <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{creator.followers || 0} Followers</p>
-                               <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">{creator.following || 0} Following</p>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                 </div>
-               </motion.div>
+              <motion.section
+                key="users"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -18 }}
+              >
+                <Panel title="Base createurs" subtitle="Vue plus compacte et plus lisible">
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {topCreators.map((creator) => (
+                      <CreatorCard key={creator.id} creator={creator} />
+                    ))}
+                  </div>
+                </Panel>
+              </motion.section>
             )}
 
             {activeTab === 'settings' && (
-                <motion.div key="settings" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="p-12 bg-white/5 rounded-[40px] border border-white/10 text-center">
-                    <Settings size={64} className="mx-auto mb-6 text-[#FF5E00] opacity-50" />
-                    <h2 className="text-3xl font-black italic mb-4">Command Settings</h2>
-                    <p className="text-white/40 max-w-md mx-auto mb-8">Configure your command center preferences and production environment variables here.</p>
-                    <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                        <button className="py-4 bg-white/5 rounded-2xl font-bold hover:bg-white/10 transition-all border border-white/5">Appearance</button>
-                        <button className="py-4 bg-white/5 rounded-2xl font-bold hover:bg-white/10 transition-all border border-white/5">Notifications</button>
-                    </div>
-                </motion.div>
+              <motion.section
+                key="settings"
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -18 }}
+              >
+                <div className="grid gap-6 md:grid-cols-2">
+                  <SettingsCard
+                    icon={Palette}
+                    title="Theme"
+                    description="Palette noir profond, violet premium, orange tribal et magenta electrique."
+                  />
+                  <SettingsCard
+                    icon={Gauge}
+                    title="Performance"
+                    description="Requetes reduites, surfaces plus simples et animations moins couteuses."
+                  />
+                </div>
+              </motion.section>
             )}
           </AnimatePresence>
         </main>
       </div>
 
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Space Grotesk', sans-serif; margin: 0; background: #050505; }
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+        body {
+          margin: 0;
+          background: #09050e;
+          font-family: 'Space Grotesk', sans-serif;
+        }
       `}</style>
     </div>
   );
 }
 
-function SidebarItem({ icon, label, active, onClick }: any) {
+function SidebarItem({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-500 group relative ${active ? 'bg-white/5 text-white' : 'text-white/40 hover:text-white'}`}>
-      {active && <motion.div layoutId="sidebar-active" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b from-[#FF5E00] to-[#E60067] rounded-r-full shadow-[0_0_15px_#FF5E00]" />}
-      <span className={`${active ? 'text-[#FF5E00]' : ''}`}>{icon}</span>
-      <span className="hidden lg:block font-bold text-sm uppercase tracking-widest">{label}</span>
+    <button
+      onClick={onClick}
+      className={`relative flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition ${
+        active
+          ? 'bg-white/[0.06] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)]'
+          : 'text-white/45 hover:bg-white/[0.03] hover:text-white'
+      }`}
+    >
+      {active ? (
+        <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#FF5E00] to-[#E60067]" />
+      ) : null}
+      <span className={active ? 'text-[#FF5E00]' : ''}>{icon}</span>
+      <span className="text-sm font-bold uppercase tracking-[0.16em]">{label}</span>
     </button>
   );
 }
 
-function StatCard({ label, value, subValue, icon, color, delay }: any) {
+function QuickPill({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
-    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay }} className="bg-[#0F0916] rounded-[32px] border border-white/5 p-8 flex flex-col justify-between group hover:border-white/20 transition-all cursor-pointer">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">{label}</span>
-        <div className="p-2 rounded-xl bg-white/5" style={{ color }}>{icon}</div>
-      </div>
-      <div>
-        <div className="text-4xl font-black italic leading-none mb-1" style={{ color }}>{value}</div>
-        <div className="text-[10px] font-bold text-white/40 uppercase">{subValue}</div>
-      </div>
-    </motion.div>
+    <div className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm font-semibold text-white/75">
+      <Icon size={15} className="text-[#FFAA00]" />
+      {label}
+    </div>
   );
 }
 
-function ContentRow({ id, title, user, reach, likes, onDelete, index }: any) {
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <motion.div layout initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }} transition={{ delay: Math.min(0.05 * index, 0.5) }} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/5 transition-all group">
+    <div className="rounded-[32px] border border-white/8 bg-white/[0.03] p-6 backdrop-blur-xl">
+      <div className="mb-6">
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/40">{subtitle}</p>
+        <h3 className="text-2xl font-black uppercase italic text-white">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  subValue,
+  icon,
+  accent,
+  iconBg,
+}: {
+  label: string;
+  value: string | number;
+  subValue: string;
+  icon: React.ReactNode;
+  accent: string;
+  iconBg: string;
+}) {
+  return (
+    <div className="rounded-[28px] border border-white/8 bg-[#12091A]/95 p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase tracking-[0.26em] text-white/40">{label}</span>
+        <div className={`rounded-2xl p-3 ${iconBg}`}>{icon}</div>
+      </div>
+      <div className={`text-4xl font-black italic leading-none ${accent}`}>{value}</div>
+      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/38">{subValue}</p>
+    </div>
+  );
+}
+
+function CreatorRow({ creator }: { creator: CreatorRecord }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-white/7 bg-white/[0.025] px-4 py-4">
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-[#FF5E00]"><Play size={16} className="fill-current" /></div>
-        <div><h5 className="font-bold text-sm tracking-tight">{title}</h5><p className="text-[10px] text-white/40">ID: {user}</p></div>
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF5E00] to-[#E60067] font-black text-white">
+          {creator.username?.[0]?.toUpperCase() || 'A'}
+        </div>
+        <div>
+          <p className="font-bold text-white">@{creator.username || 'createur'}</p>
+          <p className="text-sm text-white/48">{creator.fullName || 'Afro Vibe Creator'}</p>
+        </div>
       </div>
-      <div className="flex items-center gap-8">
-        <div className="text-right"><div className="text-sm font-black italic">{reach}</div><div className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Views</div></div>
-        <div className="text-right"><div className="text-sm font-black italic text-[#E60067]">{likes}</div><div className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Likes</div></div>
-        <button onClick={onDelete} className="text-white/20 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+      <div className="text-right">
+        <p className="text-sm font-black text-[#FFAA00]">{creator.followers || 0}</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/38">followers</p>
       </div>
-    </motion.div>
+    </div>
+  );
+}
+
+function CreatorCard({ creator }: { creator: CreatorRecord }) {
+  return (
+    <div className="rounded-[28px] border border-white/8 bg-[#12091A]/95 p-5">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-[#FF5E00] to-[#E60067] text-2xl font-black text-white">
+        {creator.username?.[0]?.toUpperCase() || 'A'}
+      </div>
+      <p className="text-lg font-black text-[#FF5E00]">@{creator.username || 'createur'}</p>
+      <p className="mt-1 text-sm text-white/55">{creator.fullName || 'Afro Vibe Creator'}</p>
+      <div className="mt-5 flex gap-6 text-xs font-bold uppercase tracking-[0.16em] text-white/38">
+        <span>{creator.followers || 0} followers</span>
+        <span>{creator.following || 0} following</span>
+      </div>
+    </div>
+  );
+}
+
+function ContentRow({
+  id,
+  title,
+  user,
+  reach,
+  likes,
+  onDelete,
+}: {
+  id: string;
+  title: string;
+  user: string;
+  reach: number;
+  likes: number;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-[24px] border border-white/8 bg-white/[0.02] p-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center gap-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FF5E00]/10 text-[#FF5E00]">
+          <Play size={16} className="fill-current" />
+        </div>
+        <div>
+          <h4 className="font-bold text-white">{title}</h4>
+          <p className="text-xs text-white/40">ID auteur: {user}</p>
+          <p className="text-[11px] text-white/28">Document: {id}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-6">
+        <Metric label="Views" value={reach} accent="text-white" />
+        <Metric label="Likes" value={likes} accent="text-[#E60067]" />
+        <button
+          onClick={onDelete}
+          className="rounded-2xl border border-red-500/15 bg-red-500/6 p-3 text-red-200 transition hover:bg-red-500/12"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div className="text-right">
+      <p className={`text-lg font-black italic ${accent}`}>{value}</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/38">{label}</p>
+    </div>
+  );
+}
+
+function SettingsCard({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-[32px] border border-white/8 bg-white/[0.03] p-6">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF5E00]/10 text-[#FF5E00]">
+        <Icon size={20} />
+      </div>
+      <h3 className="text-2xl font-black uppercase italic text-white">{title}</h3>
+      <p className="mt-3 max-w-md text-sm leading-6 text-white/60">{description}</p>
+    </div>
+  );
+}
+
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-white/45">
+      {label}
+    </div>
   );
 }

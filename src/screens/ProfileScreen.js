@@ -19,19 +19,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
-import VideoPlayerView from '../components/VideoPlayerView';
 import ProfileSkeleton from '../components/ProfileSkeleton';
 import Haptics from '../utils/haptics';
 import { showToast } from '../utils/toastManager';
 import { authService, dbService, configService } from '../services/apiService';
 import { launchImageLibrary } from 'react-native-image-picker';
-import RNFS from 'react-native-fs';
-import { resolveMediaUri } from '../utils/mediaUri';
 
 const { width } = Dimensions.get('window');
 const GRID_ITEM_WIDTH = width / 3 - 2;
 
 const VideoThumbnail = memo(({ item, index, navigation }) => {
+  const thumbnailSource = item.thumbnail
+    ? { uri: configService.fixMediaUrl(item.thumbnail) }
+    : require('../assets/images/logo.jpg');
+
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -51,16 +52,15 @@ const VideoThumbnail = memo(({ item, index, navigation }) => {
           params: { initialVideoId: item.id }
         })}
       >
-        <VideoPlayerView
-          videoUrl={item.videoUrl}
-          paused={false}
-          isMuted={true}
-          thumbnail={item.thumbnail}
-          onSingleTap={() => navigation.navigate('MainTabs', {
-            screen: 'Accueil',
-            params: { initialVideoId: item.id }
-          })}
+        <Image
+          source={thumbnailSource}
+          style={styles.gridImage}
+          resizeMode="cover"
         />
+        <View style={styles.gridOverlay} />
+        <View style={styles.playBadge}>
+          <SVGIcon name="play" size={12} color={COLORS.text} />
+        </View>
         <View style={styles.viewsContainer}>
           <SVGIcon name="play" size={10} color={COLORS.text} style={styles.viewsIcon} />
           <Text style={styles.viewsText}>{item.views || '0'}</Text>
@@ -341,6 +341,24 @@ const styles = StyleSheet.create({
   activeTabBtn: { borderBottomWidth: 2, borderBottomColor: COLORS.accent },
   listContent: { paddingBottom: SPACING.lg },
   gridItem: { width: GRID_ITEM_WIDTH, height: GRID_ITEM_WIDTH * 1.3, margin: 1, position: 'relative', backgroundColor: COLORS.cardBackground },
+  gridImage: { width: '100%', height: '100%' },
+  gridOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11, 6, 18, 0.24)',
+  },
+  playBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(8, 4, 14, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   viewsContainer: { position: 'absolute', bottom: 6, left: 6, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   viewsIcon: { marginRight: 4 },
   viewsText: { color: COLORS.text, fontSize: 9, fontWeight: 'bold' },

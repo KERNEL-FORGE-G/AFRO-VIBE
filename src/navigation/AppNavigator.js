@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { COLORS } from '../styles/theme';
 import { authService } from '../services/apiService';
 import Toast from '../components/Toast';
 import { setToastRef } from '../utils/toastManager';
+import LoadingScreen from '../components/LoadingScreen';
 
 // Import Screens & Sub-Navigators
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -54,11 +55,7 @@ export const AppNavigator = () => {
   }, [user, initializing]);
 
   if (initializing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+    return <LoadingScreen title="Connexion" subtitle="Verification de la session et chargement de l'application..." />;
   }
 
   return (
@@ -93,14 +90,5 @@ export const AppNavigator = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
 
 export default AppNavigator;
