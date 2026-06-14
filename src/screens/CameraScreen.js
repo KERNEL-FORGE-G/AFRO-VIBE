@@ -19,7 +19,6 @@ const {
   useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
-  useVideoOutput,
 } = VisionCamera;
 import { useIsFocused } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -35,6 +34,7 @@ export const CameraScreen = ({ navigation }) => {
   }
 
   const [recording, setRecording] = useState(false);
+  const [captureMode, setCaptureMode] = useState('video');
   const [speed, setSpeed] = useState('1x');
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState('off');
@@ -61,12 +61,15 @@ export const CameraScreen = ({ navigation }) => {
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
     useMicrophonePermission();
 
-  const videoOutput = useVideoOutput({ enableAudio: hasMicPermission });
-
   const speeds = ['0.3x', '0.5x', '1x', '2x', '3x'];
+  const requiresMic = captureMode === 'video';
 
   const isCameraActive =
-    isFocused && appState === 'active' && hasCameraPermission && hasMicPermission && !!device;
+    isFocused &&
+    appState === 'active' &&
+    hasCameraPermission &&
+    !!device &&
+    (!requiresMic || hasMicPermission);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', setAppState);
@@ -79,12 +82,37 @@ export const CameraScreen = ({ navigation }) => {
     };
   }, []);
 
-  const handleRecord = async () => {
+  useEffect(() => {
+    if (captureMode === 'video' && !hasMicPermission) {
+      requestMicPermission();
+    }
+  }, [captureMode, hasMicPermission, requestMicPermission]);
+
+  const handleCapture = async () => {
+    if (captureMode === 'photo') {
+      try {
+        if (!camera.current) {
+          Alert.alert('Erreur', 'La caméra n\'est pas encore prête.');
+          return;
+        }
+        setLoading(true);
+        const photo = await camera.current.takePhoto({
+          flash: flash === 'on' ? 'on' : 'off',
+        });
+        const mediaUri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
+        navigation.navigate('VideoEdit', { mediaUri, mediaType: 'photo' });
+      } catch (e) {
+        console.error('Photo capture error:', e);
+        Alert.alert('Erreur', 'Impossible de prendre la photo.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (recording) {
       try {
-        if (recorderRef.current) {
-          await recorderRef.current.stopRecording();
-        }
+        await camera.current?.stopRecording();
       } catch (e) {
         console.error('Stop recording error:', e);
         Alert.alert('Erreur', 'Impossible d\'arrêter l\'enregistrement.');
@@ -95,32 +123,30 @@ export const CameraScreen = ({ navigation }) => {
     }
 
     try {
-      if (!videoOutput) {
+      if (!camera.current) {
         Alert.alert('Erreur', 'La caméra n\'est pas prête pour l\'enregistrement.');
         return;
       }
 
       setRecording(true);
-      const recorder = await videoOutput.createRecorder({});
-      recorderRef.current = recorder;
-
-      await recorder.startRecording(
-        (filePath) => {
-          console.log('Recording finished:', filePath);
+      camera.current.startRecording({
+        flash: flash === 'on' ? 'on' : 'off',
+        onRecordingFinished: (video) => {
+          console.log('Recording finished:', video.path);
           setRecording(false);
           setLoading(false);
           recorderRef.current = null;
-          const videoUri = filePath.startsWith('file://') ? filePath : `file://${filePath}`;
-          navigation.navigate('VideoEdit', { videoUri });
+          const mediaUri = video.path.startsWith('file://') ? video.path : `file://${video.path}`;
+          navigation.navigate('VideoEdit', { mediaUri, mediaType: 'video' });
         },
-        (error) => {
+        onRecordingError: (error) => {
           console.error('Recording error:', error);
           setRecording(false);
           setLoading(false);
           recorderRef.current = null;
           Alert.alert('Erreur', 'L\'enregistrement s\'est arrêté.');
         },
-      );
+      });
     } catch (e) {
       console.error('Start recording error:', e);
       setRecording(false);
@@ -133,19 +159,19 @@ export const CameraScreen = ({ navigation }) => {
   const handleUpload = async () => {
     try {
       const result = await launchImageLibrary({
-        mediaType: 'video',
+        mediaType: captureMode,
         quality: 0.8,
         selectionLimit: 1,
       });
 
       if (result.didCancel || !result.assets || result.assets.length === 0) return;
 
-      const videoUri = result.assets[0].uri;
-      console.log('File selected for upload:', videoUri);
-      navigation.navigate('VideoEdit', { videoUri });
+      const mediaUri = result.assets[0].uri;
+      console.log('File selected for upload:', mediaUri);
+      navigation.navigate('VideoEdit', { mediaUri, mediaType: captureMode });
     } catch (err) {
       console.error('Upload error:', err);
-      Alert.alert('Erreur', 'Impossible de téléverser la vidéo.');
+      Alert.alert('Erreur', 'Impossible de charger le media.');
       setLoading(false);
     }
   };
@@ -158,18 +184,20 @@ export const CameraScreen = ({ navigation }) => {
     setFlash((prev) => (prev === 'off' ? 'on' : 'off'));
   };
 
-  if (!hasCameraPermission || !hasMicPermission) {
+  if (!hasCameraPermission || (requiresMic && !hasMicPermission)) {
     return (
       <View style={styles.permissionContainer}>
         <Text style={styles.permissionText}>
-          L'accès à la caméra et au microphone est requis pour cette fonctionnalité.
+          {requiresMic
+            ? 'L\'accès à la caméra et au microphone est requis pour enregistrer une vidéo.'
+            : 'L\'accès à la caméra est requis pour prendre une photo.'}
         </Text>
         {!hasCameraPermission && (
           <TouchableOpacity style={styles.permissionBtn} onPress={requestCameraPermission}>
             <Text style={styles.permissionBtnText}>Autoriser la caméra</Text>
           </TouchableOpacity>
         )}
-        {!hasMicPermission && (
+        {requiresMic && !hasMicPermission && (
           <TouchableOpacity
             style={[styles.permissionBtn, { marginTop: 10 }]}
             onPress={requestMicPermission}
@@ -201,9 +229,11 @@ export const CameraScreen = ({ navigation }) => {
             ref={camera}
             style={StyleSheet.absoluteFill}
             device={device}
-            outputs={[videoOutput]}
-            isActive={true}
-            torchMode={flash === 'on' ? 'on' : 'off'}
+            isActive={isCameraActive}
+            photo={captureMode === 'photo'}
+            video={captureMode === 'video'}
+            audio={captureMode === 'video' && hasMicPermission}
+            torch={flash === 'on' ? 'on' : 'off'}
           />
         )}
 
@@ -214,7 +244,9 @@ export const CameraScreen = ({ navigation }) => {
 
           <TouchableOpacity style={styles.musicSelectBtn}>
             <SVGIcon name="music" size={14} color={COLORS.text} style={styles.musicIcon} />
-            <Text style={styles.musicSelectText}>Ajouter un son</Text>
+            <Text style={styles.musicSelectText}>
+              {captureMode === 'video' ? 'Ajouter un son' : 'Portrait Afro Vibe'}
+            </Text>
           </TouchableOpacity>
           <View style={styles.flexEmpty} />
         </View>
@@ -279,7 +311,7 @@ export const CameraScreen = ({ navigation }) => {
 
             <TouchableOpacity
               style={[styles.recordBtnOuter, recording && styles.recordBtnOuterActive]}
-              onPress={handleRecord}
+              onPress={handleCapture}
               disabled={loading}
             >
               <View style={[styles.recordBtnInner, recording && styles.recordBtnInnerActive]} />
@@ -289,13 +321,19 @@ export const CameraScreen = ({ navigation }) => {
               <View style={styles.uploadIconWrapper}>
                 <SVGIcon name="share" size={20} color={COLORS.text} />
               </View>
-              <Text style={styles.accessoryText}>Téléverser</Text>
+              <Text style={styles.accessoryText}>
+                {captureMode === 'video' ? 'Importer vidéo' : 'Importer photo'}
+              </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.cameraModesContainer}>
-            <Text style={styles.modeTextActive}>Appareil</Text>
-            <Text style={styles.modeText}>Modèles</Text>
+            <TouchableOpacity onPress={() => setCaptureMode('photo')}>
+              <Text style={captureMode === 'photo' ? styles.modeTextActive : styles.modeText}>Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCaptureMode('video')}>
+              <Text style={captureMode === 'video' ? styles.modeTextActive : styles.modeText}>Vidéo</Text>
+            </TouchableOpacity>
             <Text style={styles.modeText}>LIVE</Text>
           </View>
         </View>
