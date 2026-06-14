@@ -1,119 +1,83 @@
 # Guide d'Intégration : Authentifictor
 
-Le service **Authentifictor** est un fournisseur d'identité centralisé (OAuth2) conçu pour simplifier l'authentification dans vos applications via **Google** et **GitHub**. Ce guide détaille comment intégrer ce service dans vos projets.
+Authentifictor est un service d'authentification centralisé utilisant **Firebase Auth** et **Firestore**. Ce guide explique comment intégrer notre service pour connecter vos utilisateurs via **Google**, **GitHub** ou **Email/Password**.
 
 ---
 
 ## 1. Fonctionnement
-Le processus d'authentification se déroule en trois étapes :
+Le service utilise les **Custom Tokens Firebase** pour garantir une sécurité native et une intégration transparente avec Firestore.
 
-1.  **Redirection :** Votre application redirige l'utilisateur vers le service Authentifictor (`/api/auth/{provider}`).
-2.  **Consentement :** L'utilisateur s'authentifie via le fournisseur choisi (Google ou GitHub).
-3.  **Callback :** Authentifictor redirige l'utilisateur vers votre `redirect_uri` avec un jeton sécurisé (JWT).
+1.  **Authentification :** L'utilisateur se connecte via OAuth (Google/GitHub) ou Email/Password.
+2.  **Génération de Token :** Notre serveur génère un `customToken` Firebase sécurisé.
+3.  **Connexion Client :** Votre application utilise ce token pour se connecter nativement à Firebase.
 
 ---
 
-## 2. Intégration dans votre Application
+## 2. Intégration Client (React/React Native)
 
-### A. Déclencher la Connexion
-Utilisez l'une des URLs suivantes pour rediriger l'utilisateur vers notre service :
-
-*   **Google :** `https://authentificator.vercel.app/api/auth/google`
-*   **GitHub :** `https://authentificator.vercel.app/api/auth/github`
-
-**Paramètres de requête requis :**
-
-| Paramètre | Description |
-| :--- | :--- |
-| `app` | Le nom de votre application (pour le suivi). |
-| `redirect_uri` | L'URL complète de votre application où l'utilisateur sera redirigé après succès/échec (encodée). |
-
-*Exemple de redirection :*
-`https://authentificator.vercel.app/api/auth/google?app=MonApp&redirect_uri=https%3A%2F%2Fmon-app.com%2Fcallback`
-
-### B. Gestion du Callback
-Authentifictor redirige vers votre `redirect_uri` en ajoutant les paramètres suivants :
-
-*   `status` : `success` ou `failure`.
-*   `token` : Un **JWT** valide si le statut est `success`.
-
-Vous devez récupérer ces paramètres, valider le jeton, et gérer la session utilisateur dans votre application.
-
-### C. Exemples d'implémentation (JavaScript)
-
-**1. Déclencher la Connexion :**
-Vous pouvez créer des fonctions dédiées pour chaque fournisseur :
+### A. Connexion OAuth
+Redirigez l'utilisateur vers notre API de connexion :
 
 ```javascript
 const loginWithGoogle = () => {
   const serviceUrl = "https://authentificator.vercel.app/api/auth/google";
-  const params = new URLSearchParams({
-    app: "NomDeVotreApp",
-    redirect_uri: encodeURIComponent("https://votre-site.com/callback")
-  });
-  window.location.href = `${serviceUrl}?${params.toString()}`;
-};
-
-const loginWithGitHub = () => {
-  const serviceUrl = "https://authentificator.vercel.app/api/auth/github";
-  const params = new URLSearchParams({
-    app: "NomDeVotreApp",
-    redirect_uri: encodeURIComponent("https://votre-site.com/callback")
-  });
-  window.location.href = `${serviceUrl}?${params.toString()}`;
+  // redirect_uri doit être encodée
+  const redirectUri = encodeURIComponent("https://votre-site.com/callback");
+  window.location.href = `${serviceUrl}?app=VotreApp&redirect_uri=${redirectUri}`;
 };
 ```
 
-**2. Gérer le Callback :**
-```javascript
-// Dans votre page de callback
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const status = params.get('status');
-  const token = params.get('token');
+### B. Gestion du Callback (Récupération du token)
+Dans votre page de callback, échangez le `customToken` reçu contre une session Firebase active :
 
-  if (status === 'success' && token) {
-    // Stocker le JWT pour vos futures requêtes
-    localStorage.setItem('auth_token', token);
-    alert('Authentification réussie !');
-  } else {
-    alert('Erreur d\'authentification');
+```javascript
+import { signInWithCustomToken } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
+
+const handleCallback = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const customToken = params.get('customToken');
+
+  if (customToken) {
+    const auth = getAuth();
+    // Authentifie nativement l'utilisateur auprès de Firebase
+    await signInWithCustomToken(auth, customToken);
+    console.log("Utilisateur connecté nativement !");
   }
-}, []);
+};
 ```
 
 ---
 
 ## 3. Sécurisation des Données (Firebase Firestore)
 
-Pour garantir la confidentialité et l'intégrité de vos données, déployez les règles de sécurité Firestore suivantes dans votre console Firebase pour assurer que les utilisateurs ne peuvent manipuler que leurs propres données :
+Une fois l'utilisateur connecté via `signInWithCustomToken`, les règles `request.auth` natifs de Firebase sont automatiquement activées. Utilisez ces règles sécurisées :
 
 ```firestore
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    // Profils utilisateur : accès restreint au propriétaire
     match /users/{userId} {
-      allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Vidéos/Contenu : public en lecture, protégé en écriture
     match /videos/{videoId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow write: if request.auth != null;
     }
-
-    // ... (Appliquez des règles similaires pour vos autres collections)
   }
 }
 ```
-
 ---
 
-## 4. Administration
+## 4. Côté Serveur (Backend)
+Pour générer le `customToken` à renvoyer au client :
 
-Gérez vos applications et surveillez les logs de connexion en temps réel sur la console d'administration :
-[https://authentificator.vercel.app/admin](https://authentificator.vercel.app/admin)
+```javascript
+// Exemple conceptuel avec Firebase Admin SDK
+const customToken = await admin.auth().createCustomToken(userIdFromDb);
+// Renvoyer ce token dans l'URL de redirection au client
+```
