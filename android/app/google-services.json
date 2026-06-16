@@ -12,7 +12,20 @@
           "package_name": "com.afrovibe.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "164585162829-vcf7us4gp6b801g8isg68kaj3fk51f9s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.afrovibe.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "164585162829-ct31rohntm7lrr21ssmatadg5jrs4qc2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBdNvCHgWmawH2itlLWD59dqzd6Of3mj2c"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "164585162829-ct31rohntm7lrr21ssmatadg5jrs4qc2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
