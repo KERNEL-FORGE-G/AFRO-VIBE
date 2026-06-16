@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "164585162829",
+    "project_id": "afro-vibe-ab786",
+    "storage_bucket": "afro-vibe-ab786.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:164585162829:android:b2893a252026e3848f3404",
+        "android_client_info": {
+          "package_name": "com.afrovibe.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdNvCHgWmawH2itlLWD59dqzd6Of3mj2c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -215,49 +215,7 @@ export const onlineAuthService = {
   },
 
   signInWithGitHub: async () => {
-    return await onlineAuthService.signInWithAuthentifictor('github');
-  },
-
-  signInWithAuthentifictor: async (provider) => {
-    const serviceUrl = "https://authentificator.vercel.app";
-    const appName = "AfroVibe";
-    const redirectUri = "afrovibe://auth/callback";
-    const url = `${serviceUrl}/api/auth/${provider}?app=${appName}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-    try {
-      if (await InAppBrowser.isAvailable()) {
-        const result = await InAppBrowser.openAuth(url, redirectUri, {
-          showTitle: false,
-          enableUrlBarHiding: true,
-          enableDefaultShare: false,
-          forceCloseOnRedirection: true,
-        });
-
-        if (result.type === 'success') {
-          const params = new URLSearchParams(result.url.split('?')[1]);
-          const customToken = params.get('customToken');
-          const status = params.get('status');
-
-          if (status === 'success' && customToken) {
-             const auth = getFirebaseAuth();
-             await signInWithCustomToken(auth, customToken);
-             
-             // Ensure user exists in Firestore
-             const user = await ensureUserProfile(auth.currentUser, null, null);
-             triggerAuthListeners(user);
-             return { success: true };
-          }
-          throw new Error('Authentification échouée');
-        }
-        throw new Error('Authentification annulée');
-      } else {
-        Linking.openURL(url);
-        return { success: false, message: 'Veuillez terminer l\'authentification dans votre navigateur.' };
-      }
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
+    throw new Error('Authentification GitHub non configurée nativement.');
   },
 
   signOut: async () => {
