@@ -4,14 +4,17 @@ async function setupDatabase() {
   const db = new Database('./database.sqlite');
 
   // Shim to maintain compatibility with async calls in routes
-  db.all = async (sql, ...params) => {
-    return db.prepare(sql).all(...params);
+  db.all = async (sql, params = []) => {
+    const actualParams = Array.isArray(params) ? params : [params];
+    return db.prepare(sql).all(...actualParams);
   };
-  db.get = async (sql, ...params) => {
-    return db.prepare(sql).get(...params);
+  db.get = async (sql, params = []) => {
+    const actualParams = Array.isArray(params) ? params : [params];
+    return db.prepare(sql).get(...actualParams);
   };
-  db.run = async (sql, ...params) => {
-    return db.prepare(sql).run(...params);
+  db.run = async (sql, params = []) => {
+    const actualParams = Array.isArray(params) ? params : [params];
+    return db.prepare(sql).run(...actualParams);
   };
   db.execAsync = async (sql) => {
     return db.exec(sql);
