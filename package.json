@@ -9,6 +9,7 @@
     "test": "jest",
     "lint": "eslint .",
     "build:android": "cd android && ./gradlew assembleRelease",
+    "apk": "npm run build:android && cp android/app/build/outputs/apk/release/*.apk ./",
     "build:android:debug": "cd android && ./gradlew assembleDebug",
     "clean:android": "cd android && ./gradlew clean",
     "backend:start": "npm --prefix backend start",
