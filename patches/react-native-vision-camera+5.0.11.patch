@@ -1,0 +1,87 @@
+diff --git a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PhotoContainerFormat+fromImageFormat.kt b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PhotoContainerFormat+fromImageFormat.kt
+index ab32c97..7e307d3 100644
+--- a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PhotoContainerFormat+fromImageFormat.kt
++++ b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PhotoContainerFormat+fromImageFormat.kt
+@@ -5,9 +5,10 @@ import com.margelo.nitro.camera.PhotoContainerFormat
+ import com.margelo.nitro.camera.utils.ImageFormatUtils
+ 
+ fun PhotoContainerFormat.Companion.fromImageFormat(imageFormat: Int): PhotoContainerFormat {
++  val heicUltraHdr = ImageFormatUtils.heicUltraHdr
+   return when {
+     // HEIC
+-    imageFormat == ImageFormat.HEIC || imageFormat == ImageFormat.HEIC_ULTRAHDR -> PhotoContainerFormat.HEIC
++    imageFormat == ImageFormat.HEIC || (heicUltraHdr != null && imageFormat == heicUltraHdr) -> PhotoContainerFormat.HEIC
+     // DNG/RAW
+     ImageFormatUtils.isRawFormat(imageFormat) -> PhotoContainerFormat.DNG
+     // JPEG
+diff --git a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PixelFormat+fromImageFormat.kt b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PixelFormat+fromImageFormat.kt
+index 67d9261..f3ff914 100644
+--- a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PixelFormat+fromImageFormat.kt
++++ b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/extensions/converters/PixelFormat+fromImageFormat.kt
+@@ -2,8 +2,13 @@ package com.margelo.nitro.camera.extensions.converters
+ 
+ import android.graphics.ImageFormat
+ import com.margelo.nitro.camera.PixelFormat
++import com.margelo.nitro.camera.utils.ImageFormatUtils
+ 
+ fun PixelFormat.Companion.fromImageFormat(imageFormat: Int): PixelFormat {
++  ImageFormatUtils.ycbcrP210?.let {
++    if (imageFormat == it) return PixelFormat.YUV_422_10_BIT_VIDEO
++  }
++
+   return when (imageFormat) {
+     ImageFormat.FLEX_RGB_888 -> PixelFormat.RGB_RGB_8_BIT
+     ImageFormat.FLEX_RGBA_8888 -> PixelFormat.RGB_RGBA_8_BIT
+@@ -13,7 +18,6 @@ fun PixelFormat.Companion.fromImageFormat(imageFormat: Int): PixelFormat {
+     ImageFormat.YUV_422_888 -> PixelFormat.YUV_422_8_BIT_VIDEO
+     ImageFormat.YUV_444_888 -> PixelFormat.YUV_444_8_BIT_VIDEO
+     ImageFormat.YCBCR_P010 -> PixelFormat.YUV_420_10_BIT_VIDEO
+-    ImageFormat.YCBCR_P210 -> PixelFormat.YUV_422_10_BIT_VIDEO
+     ImageFormat.PRIVATE -> PixelFormat.PRIVATE
+     else -> PixelFormat.UNKNOWN
+   }
+diff --git a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/utils/ImageFormatUtils.kt b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/utils/ImageFormatUtils.kt
+index 11997f8..792c25f 100644
+--- a/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/utils/ImageFormatUtils.kt
++++ b/node_modules/react-native-vision-camera/android/src/main/java/com/margelo/nitro/camera/utils/ImageFormatUtils.kt
+@@ -3,6 +3,17 @@ package com.margelo.nitro.camera.utils
+ import android.graphics.ImageFormat
+ 
+ object ImageFormatUtils {
++  private fun getImageFormatValueOrNull(name: String): Int? {
++    return try {
++      ImageFormat::class.java.getField(name).getInt(null)
++    } catch (_: Throwable) {
++      null
++    }
++  }
++
++  val ycbcrP210: Int? = getImageFormatValueOrNull("YCBCR_P210")
++  val heicUltraHdr: Int? = getImageFormatValueOrNull("HEIC_ULTRAHDR")
++
+   val allVideoFormats =
+     arrayOf(
+       // YUV
+@@ -11,7 +22,7 @@ object ImageFormatUtils {
+       ImageFormat.YUV_422_888,
+       ImageFormat.YUV_444_888,
+       ImageFormat.YCBCR_P010,
+-      ImageFormat.YCBCR_P210,
++      *listOfNotNull(ycbcrP210).toTypedArray(),
+       // RGB
+       ImageFormat.FLEX_RGB_888,
+       ImageFormat.FLEX_RGBA_8888,
+@@ -36,11 +47,11 @@ object ImageFormatUtils {
+       ImageFormat.DEPTH_JPEG,
+       ImageFormat.RAW_SENSOR,
+       ImageFormat.HEIC,
+-      ImageFormat.HEIC_ULTRAHDR,
++      *listOfNotNull(heicUltraHdr).toTypedArray(),
+     )
+   private val allPhotoHdrFormats =
+     arrayOf(
+-      ImageFormat.HEIC_ULTRAHDR,
++      *listOfNotNull(heicUltraHdr).toTypedArray(),
+       ImageFormat.JPEG_R,
+     )
+ 
