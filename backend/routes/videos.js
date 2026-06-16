@@ -80,12 +80,19 @@ router.get('/', async (req, res) => {
         return toClientVideo(video, user);
       }));
     } else if (db) {
-      const localVideos = await db.all(`
-        SELECT v.*, u.id as user_id, u.username, u.fullName, u.avatar, u.isVerified
-        FROM videos v
-        LEFT JOIN users u ON v.user_id = u.id
-        ORDER BY v.created_at DESC
-      `);
+      console.log('Fetching videos from SQLite...');
+      let localVideos = [];
+      try {
+        localVideos = await db.all(`
+          SELECT v.*, u.id as user_id, u.username, u.fullName, u.avatar, u.isVerified
+          FROM videos v
+          LEFT JOIN users u ON v.user_id = u.id
+          ORDER BY v.created_at DESC
+        `);
+      } catch (sqlError) {
+        console.error('SQL Execution Error:', sqlError);
+        throw sqlError;
+      }
 
       videos = localVideos.map(v => {
         let finalVideoUrl = v.videoUrl;
