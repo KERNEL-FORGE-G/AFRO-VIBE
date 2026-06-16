@@ -18,8 +18,13 @@ jobs:
           distribution: 'temurin'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;27.1.12297006" "cmake;3.22.1"
+          yes | sdkmanager --licenses > /dev/null
       - name: Install Node.js
         uses: actions/setup-node@v4
+        with:
         with:
           node-version: '22'
           cache: 'npm'
@@ -38,7 +43,10 @@ jobs:
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: echo $GOOGLE_SERVICES_JSON > android/app/google-services.json
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          fi
 
       - name: Build Android
         run: npm run build:android
