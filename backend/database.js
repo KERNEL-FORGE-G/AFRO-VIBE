@@ -1,15 +1,17 @@
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+const Database = require('better-sqlite3');
 
 async function setupDatabase() {
-  const db = await open({
-    filename: './database.sqlite',
-    driver: sqlite3.Database
-  });
+  const db = new Database('./database.sqlite');
+
+  // Shim to maintain compatibility with async calls in routes
+  db.all = async (sql, params = []) => db.prepare(sql).all(params);
+  db.get = async (sql, params = []) => db.prepare(sql).get(params);
+  db.run = async (sql, params = []) => db.prepare(sql).run(params);
+  db.execAsync = async (sql) => db.exec(sql);
 
   console.log("Creating tables...");
   
-  await db.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE,
@@ -79,8 +81,6 @@ async function setupDatabase() {
     );
   `);
 
-  // No seed data — the database starts clean.
-  // Real users will register via the app and videos will be uploaded by them.
   console.log('Database ready (no seed data).');
 
   return db;
