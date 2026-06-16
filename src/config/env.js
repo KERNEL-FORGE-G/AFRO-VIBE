@@ -19,6 +19,11 @@ export const ENV = {
     imageFolder: 'afrovibe/avatars',
   },
 
+  supabase: {
+    url: '',
+    anonKey: '',
+  },
+
   google: {
     webClientId: '60620850112-48amj0p32oojgi73hmduhs5m41jr641a.apps.googleusercontent.com',
   },
@@ -31,5 +36,8 @@ export const isFirebaseConfigured = () =>
 
 export const isCloudinaryConfigured = () =>
   !!(ENV.cloudinary.cloudName && ENV.cloudinary.uploadPreset);
+
+export const SUPABASE_URL = ENV.supabase.url;
+export const SUPABASE_ANON_KEY = ENV.supabase.anonKey;
 
 export default ENV;
