@@ -127,6 +127,7 @@ const VideoItemComponent = ({
         onSingleTap={onTogglePause}
         onDoubleTap={() => handleLike(item.id)}
         onShare={() => handleShare(item)}
+        metadata={item.metadata}
       />
 
       <Animated.View
