@@ -55,7 +55,6 @@ const toClientUser = (user, extra = {}) => ({
   following: user.following || 0,
   likes: user.likes || 0,
   bio: user.bio || '',
-  authToken: user.authToken || null,
   ...extra,
 });
 
@@ -129,17 +128,16 @@ const ensureUserProfile = async (firebaseUser, username, token = null) => {
       bio: '',
       isVerified: false,
       created_at: new Date().toISOString(),
-      authToken: token,
     };
     await setDoc(ref, profile);
-    return toClientUser(profile);
+    const clientUser = toClientUser(profile);
+    if (token) clientUser.authToken = token;
+    return clientUser;
   }
-  const existingData = snap.data();
-  if (token && existingData.authToken !== token) {
-    await updateDoc(ref, { authToken: token });
-    existingData.authToken = token;
-  }
-  return toClientUser({ id: snap.id, ...existingData });
+  const profile = { id: snap.id, ...snap.data() };
+  const clientUser = toClientUser(profile);
+  if (token) clientUser.authToken = token;
+  return clientUser;
 };
 
 const createNotification = async ({ toUserId, fromUserId, type, message, videoId }) => {
@@ -419,7 +417,6 @@ export const onlineDbService = {
         video_id: videoId,
         user_id: myId,
         created_at: new Date().toISOString(),
-        authToken: currentUser.authToken || null,
       });
       tx.update(videoRef, { likes: increment(1) });
       return { isLiked: true };
@@ -481,7 +478,6 @@ export const onlineDbService = {
       user_id: myId,
       text: text.trim(),
       created_at: new Date().toISOString(),
-      authToken: currentUser.authToken || null,
     });
     const videoRef = doc(db, 'videos', videoId);
     await updateDoc(videoRef, { commentsCount: increment(1) });
@@ -541,7 +537,6 @@ export const onlineDbService = {
         thumbnail: thumbnail || 'logo.jpg',
         created_at: new Date().toISOString(),
         metadata: metadata, // Save filters/stickers metadata
-        authToken: currentUser.authToken || null,
       };
 
       console.log('[uploadVideo] Creating Firestore document:', videoRef.id);

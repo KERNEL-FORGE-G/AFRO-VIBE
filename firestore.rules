@@ -13,49 +13,49 @@ service cloud.firestore {
     }
 
     // Helper pour valider l'accès en écriture
-    function canWrite(token, uid) {
-      return isValidToken(token) || (isAuthenticated() && (uid == null || request.auth.uid == uid));
+    function canWrite(uid) {
+      return isAuthenticated() && (uid == null || request.auth.uid == uid);
     }
 
     match /users/{userId} {
       allow read: if true; // Option B: Lecture publique
-      allow write: if canWrite(request.resource.data.authToken, userId);
+      allow write: if canWrite(userId);
     }
 
     match /videos/{videoId} {
       allow read: if true;
-      allow write: if canWrite(request.resource.data.authToken, null);
+      allow write: if canWrite(null);
     }
 
     match /comments/{commentId} {
       allow read: if true;
-      allow write: if canWrite(request.resource.data.authToken, null);
+      allow write: if canWrite(null);
     }
     
     match /likes/{likeId} {
       allow read: if true;
-      allow write: if canWrite(request.resource.data.authToken, null);
+      allow write: if canWrite(null);
     }
 
     match /follows/{followId} {
       allow read: if true;
-      allow write: if canWrite(request.resource.data.authToken, null);
+      allow write: if canWrite(null);
     }
 
     match /bookmarks/{bookmarkId} {
       allow read: if true; // Option B: Lecture publique
-      allow write: if canWrite(request.resource.data.authToken, null);
+      allow write: if canWrite(null);
     }
 
     match /messages/{msgId} {
       allow read: if true; // Option B: Lecture publique
-      allow create: if canWrite(request.resource.data.authToken, null);
+      allow create: if canWrite(null);
     }
 
     match /notifications/{notifId} {
       allow read: if true; // Option B: Lecture publique
-      allow create: if canWrite(request.resource.data.authToken, null);
-      allow update, delete: if canWrite(request.resource.data.authToken, null);
+      allow create: if canWrite(null);
+      allow update, delete: if canWrite(null);
     }
 
     // Protection de la config
