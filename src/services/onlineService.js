@@ -202,20 +202,69 @@ export const onlineAuthService = {
     if (!ENV.google.webClientId) {
       throw new Error('Google non configuré. Remplissez ENV.google.webClientId dans env.js');
     }
-    await GoogleSignin.hasPlayServices();
-    const result = await GoogleSignin.signIn();
-    const idToken = result.data?.idToken;
-    if (!idToken) throw new Error('Token Google introuvable');
-    const credential = GoogleAuthProvider.credential(idToken);
-    const auth = getFirebaseAuth();
-    const cred = await signInWithCredential(auth, credential);
-    const user = await ensureUserProfile(cred.user);
-    triggerAuthListeners(user);
-    return { user };
+    try {
+      await GoogleSignin.hasPlayServices();
+      const result = await GoogleSignin.signIn();
+      const idToken = result.data?.idToken;
+      if (!idToken) throw new Error('Token Google introuvable');
+      const credential = GoogleAuthProvider.credential(idToken);
+      const auth = getFirebaseAuth();
+      const cred = await signInWithCredential(auth, credential);
+      const user = await ensureUserProfile(cred.user);
+      triggerAuthListeners(user);
+      return { user };
+    } catch (error) {
+      console.warn('Google Sign-In failed, falling back to Authentifictor:', error);
+      return onlineAuthService.signInWithAuthentifictor('google');
+    }
   },
 
   signInWithGitHub: async () => {
-    throw new Error('Authentification GitHub non configurée nativement.');
+    return onlineAuthService.signInWithAuthentifictor('github');
+  },
+
+  signInWithAuthentifictor: async (provider) => {
+    assertFirebase();
+    const auth = getFirebaseAuth();
+    const serviceUrl = `https://authentificator.vercel.app/api/auth/${provider}`;
+    const redirectUri = encodeURIComponent('afrovibe://auth/callback');
+    const url = `${serviceUrl}?app=AfroVibe&redirect_uri=${redirectUri}`;
+
+    if (await InAppBrowser.isAvailable()) {
+      const result = await InAppBrowser.openAuth(url, redirectUri, {
+        showTitle: false,
+        enableUrlBarHiding: true,
+        enableDefaultShare: false,
+      });
+
+      if (result.type === 'success' && result.url) {
+        const customToken = new URL(result.url).searchParams.get('customToken');
+        if (customToken) {
+          const cred = await signInWithCustomToken(auth, customToken);
+          const user = await ensureUserProfile(cred.user, null, customToken);
+          triggerAuthListeners(user);
+          return { user };
+        }
+      }
+    } else {
+      Linking.openURL(url);
+      return new Promise((resolve) => {
+        const handleUrl = async (event) => {
+          if (event.url.startsWith('afrovibe://auth/callback')) {
+            Linking.removeEventListener('url', handleUrl);
+            const customToken = new URL(event.url).searchParams.get('customToken');
+            if (customToken) {
+              const cred = await signInWithCustomToken(auth, customToken);
+              const user = await ensureUserProfile(cred.user, null, customToken);
+              triggerAuthListeners(user);
+              resolve({ user });
+            }
+          }
+        };
+        Linking.addEventListener('url', handleUrl);
+      });
+    }
+    throw new Error(`Échec de l'authentification avec ${provider}`);
   },
 
   signOut: async () => {
@@ -360,7 +409,13 @@ export const onlineDbService = {
         tx.update(videoRef, { likes: increment(-1) });
         return { isLiked: false };
       }
-      tx.set(likeRef, { id: likeId, video_id: videoId, user_id: myId, created_at: new Date().toISOString() });
+      tx.set(likeRef, {
+        id: likeId,
+        video_id: videoId,
+        user_id: myId,
+        created_at: new Date().toISOString(),
+        authToken: currentUser.authToken || null,
+      });
       tx.update(videoRef, { likes: increment(1) });
       return { isLiked: true };
     });
@@ -421,6 +476,7 @@ export const onlineDbService = {
       user_id: myId,
       text: text.trim(),
       created_at: new Date().toISOString(),
+      authToken: currentUser.authToken || null,
     });
     const videoRef = doc(db, 'videos', videoId);
     await updateDoc(videoRef, { commentsCount: increment(1) });
@@ -452,28 +508,47 @@ export const onlineDbService = {
   uploadVideo: async (videoUri, caption, category, metadata = {}) => {
     assertFirebase();
     const myId = currentUser?.uid;
-    if (!myId) throw new Error('Utilisateur non connecté');
-    const { url, thumbnail } = await uploadVideoToCloudinary(videoUri);
-    const db = getFirestoreDb();
-    const videoRef = doc(collection(db, 'videos'));
-    const video = {
-      id: videoRef.id,
-      user_id: myId,
-      videoUrl: url,
-      caption: caption || 'Nouvelle vidéo Afro Vibe !',
-      likes: 0,
-      commentsCount: 0,
-      shares: 0,
-      audioName: 'Son Original',
-      category: category || 'Danse',
-      views: 0,
-      thumbnail: thumbnail || 'logo.jpg',
-      created_at: new Date().toISOString(),
-      metadata: metadata, // Save filters/stickers metadata
-    };
-    await setDoc(videoRef, video);
-    const user = await fetchFirestoreUser(myId);
-    return { success: true, videoId: videoRef.id, videoUrl: url, video: toClientVideo(video, user) };
+    if (!myId) {
+      console.error('[uploadVideo] Error: No current user');
+      throw new Error('Utilisateur non connecté');
+    }
+
+    try {
+      console.log('[uploadVideo] Starting upload for user:', myId);
+      console.log('[uploadVideo] Video URI:', videoUri);
+
+      const { url, thumbnail } = await uploadVideoToCloudinary(videoUri);
+      console.log('[uploadVideo] Cloudinary upload successful:', url);
+
+      const db = getFirestoreDb();
+      const videoRef = doc(collection(db, 'videos'));
+      const video = {
+        id: videoRef.id,
+        user_id: myId,
+        videoUrl: url,
+        caption: caption || 'Nouvelle vidéo Afro Vibe !',
+        likes: 0,
+        commentsCount: 0,
+        shares: 0,
+        audioName: 'Son Original',
+        category: category || 'Danse',
+        views: 0,
+        thumbnail: thumbnail || 'logo.jpg',
+        created_at: new Date().toISOString(),
+        metadata: metadata, // Save filters/stickers metadata
+        authToken: currentUser.authToken || null,
+      };
+
+      console.log('[uploadVideo] Creating Firestore document:', videoRef.id);
+      await setDoc(videoRef, video);
+      console.log('[uploadVideo] Firestore document created successfully');
+
+      const user = await fetchFirestoreUser(myId);
+      return { success: true, videoId: videoRef.id, videoUrl: url, video: toClientVideo(video, user) };
+    } catch (error) {
+      console.error('[uploadVideo] Upload failed:', error);
+      throw error;
+    }
   },
 
   getUser: async (userId) => {
