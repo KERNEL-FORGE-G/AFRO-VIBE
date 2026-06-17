@@ -1,4 +1,4 @@
-// Camera & Publication Screen (Plus) - TEMPORARILY DISABLED
+// Camera & Publication Screen (Plus)
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -8,11 +8,16 @@ import {
   ActivityIndicator,
   StatusBar,
   Alert,
-  AppState,
-  Animated
+  Animated,
+  Linking
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
-// import * as VisionCamera from 'react-native-vision-camera';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission
+} from 'react-native-vision-camera';
 import { useIsFocused } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import SVGIcon from '../components/SVGIcon';
@@ -20,6 +25,16 @@ import TribalPattern from '../components/TribalPattern';
 
 export const CameraScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [flash, setFlash] = useState('off');
+  const [cameraPosition, setCameraPosition] = useState('back');
+
+  const cameraRef = useRef(null);
+  const isFocused = useIsFocused();
+  const device = useCameraDevice(cameraPosition);
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const { hasPermission: hasMicrophonePermission, requestPermission: requestMicrophonePermission } = useMicrophonePermission();
+
   const entranceAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -29,6 +44,13 @@ export const CameraScreen = ({ navigation }) => {
       useNativeDriver: true,
     }).start();
   }, [entranceAnim]);
+
+  useEffect(() => {
+    (async () => {
+      if (!hasCameraPermission) await requestCameraPermission();
+      if (!hasMicrophonePermission) await requestMicrophonePermission();
+    })();
+  }, [hasCameraPermission, hasMicrophonePermission]);
 
   const handleUpload = async () => {
     try {
@@ -46,42 +68,128 @@ export const CameraScreen = ({ navigation }) => {
     } catch (err) {
       console.error('Upload error:', err);
       Alert.alert('Erreur', 'Impossible de charger le media.');
-      setLoading(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <TribalPattern position="top" height={10} />
+  const startRecording = async () => {
+    if (!cameraRef.current) return;
+    try {
+      setIsRecording(true);
+      await cameraRef.current.startRecording({
+        onRecordingFinished: (video) => {
+          setIsRecording(false);
+          navigation.navigate('VideoEdit', { mediaUri: video.path, mediaType: 'video' });
+        },
+        onRecordingError: (error) => {
+          console.error('Recording error:', error);
+          setIsRecording(false);
+          Alert.alert('Erreur', 'L\'enregistrement a échoué.');
+        },
+        flash: flash,
+      });
+    } catch (e) {
+      console.error('Start recording error:', e);
+      setIsRecording(false);
+    }
+  };
 
-      <View style={styles.cameraView}>
-        <View style={styles.topControlOverlay}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Accueil')}>
-            <SVGIcon name="close" size={24} color={COLORS.text} />
+  const stopRecording = async () => {
+    if (!cameraRef.current) return;
+    try {
+      await cameraRef.current.stopRecording();
+    } catch (e) {
+      console.error('Stop recording error:', e);
+    }
+  };
+
+  const toggleCamera = () => {
+    setCameraPosition(prev => prev === 'back' ? 'front' : 'back');
+  };
+
+  const toggleFlash = () => {
+    setFlash(prev => prev === 'off' ? 'on' : 'off');
+  };
+
+  if (!hasCameraPermission || !hasMicrophonePermission) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.content}>
+          <SVGIcon name="camera" size={64} color={COLORS.primary} />
+          <Text style={styles.disabledText}>Permissions requises</Text>
+          <Text style={styles.subText}>Afro Vibe a besoin d'accéder à votre caméra et micro pour créer des vidéos.</Text>
+          <TouchableOpacity style={styles.uploadLargeBtn} onPress={() => Linking.openSettings()}>
+            <Text style={styles.uploadBtnText}>Ouvrir les paramètres</Text>
           </TouchableOpacity>
         </View>
+      </View>
+    );
+  }
 
-        <View style={styles.content}>
-           <SVGIcon name="camera" size={64} color={COLORS.primary} />
-           <Text style={styles.disabledText}>La caméra est temporairement désactivée pour maintenance.</Text>
-           <Text style={styles.subText}>Vous pouvez toujours importer une vidéo depuis votre galerie.</Text>
-           
-           <TouchableOpacity style={styles.uploadLargeBtn} onPress={handleUpload}>
-              <SVGIcon name="share" size={24} color={COLORS.text} />
-              <Text style={styles.uploadBtnText}>Importer de la galerie</Text>
-           </TouchableOpacity>
+  if (!device) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      <Camera
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={isFocused}
+        video={true}
+        audio={true}
+      />
+
+      <View style={styles.overlay}>
+        <View style={styles.topControlOverlay}>
+          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('MainTabs')}>
+            <SVGIcon name="close" size={28} color={COLORS.text} />
+          </TouchableOpacity>
+
+          <View style={styles.sideControls}>
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleCamera}>
+              <SVGIcon name="camera" size={24} color={COLORS.text} />
+              <Text style={styles.controlText}>Retourner</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleFlash}>
+              <SVGIcon name={flash === 'on' ? 'sun' : 'moon'} size={24} color={COLORS.text} />
+              <Text style={styles.controlText}>Flash</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Publication de votre Afro Vibe...</Text>
-          </View>
-        )}
+        <View style={styles.bottomControls}>
+          <TouchableOpacity style={styles.galleryBtn} onPress={handleUpload}>
+            <View style={styles.galleryIcon}>
+               <SVGIcon name="share" size={20} color={COLORS.text} />
+            </View>
+            <Text style={styles.galleryText}>Galerie</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.recordBtn, isRecording && styles.recordingBtn]}
+            onPress={isRecording ? stopRecording : startRecording}
+          >
+            <View style={[styles.recordInner, isRecording && styles.recordingInner]} />
+          </TouchableOpacity>
+
+          <View style={styles.emptySpace} />
+        </View>
       </View>
 
-      <TribalPattern position="bottom" height={10} />
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Traitement de votre Afro Vibe...</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -89,13 +197,90 @@ export const CameraScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: 'space-between',
+    backgroundColor: '#000',
+    justifyContent: 'center',
   },
-  cameraView: {
-    flex: 1,
-    backgroundColor: '#0F0615',
-    position: 'relative',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+  },
+  topControlOverlay: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: StatusBar.currentHeight || 20,
+  },
+  sideControls: {
+    alignItems: 'center',
+  },
+  controlBtn: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  controlText: {
+    color: COLORS.text,
+    fontSize: 10,
+    marginTop: 4,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  closeBtn: {
+    padding: 8,
+  },
+  bottomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: SPACING.xl,
+  },
+  recordBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  recordingBtn: {
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  recordInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.primary,
+  },
+  recordingInner: {
+    width: 32,
+    height: 32,
+    borderRadius: 4,
+    backgroundColor: '#FF0000',
+  },
+  galleryBtn: {
+    alignItems: 'center',
+    width: 60,
+  },
+  galleryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  galleryText: {
+    color: COLORS.text,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: 'bold',
+  },
+  emptySpace: {
+    width: 60,
   },
   content: {
     flex: 1,
@@ -118,8 +303,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xxl,
   },
   uploadLargeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
@@ -128,20 +311,10 @@ const styles = StyleSheet.create({
   uploadBtnText: {
     color: COLORS.text,
     fontWeight: 'bold',
-    marginLeft: SPACING.sm,
-  },
-  topControlOverlay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    zIndex: 10,
-  },
-  closeBtn: {
-    padding: 6,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(19, 9, 27, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,

@@ -449,7 +449,7 @@ export const onlineDbService = {
     };
   },
 
-  uploadVideo: async (videoUri, caption, category) => {
+  uploadVideo: async (videoUri, caption, category, metadata = {}) => {
     assertFirebase();
     const myId = currentUser?.uid;
     if (!myId) throw new Error('Utilisateur non connecté');
@@ -469,6 +469,7 @@ export const onlineDbService = {
       views: 0,
       thumbnail: thumbnail || 'logo.jpg',
       created_at: new Date().toISOString(),
+      metadata: metadata, // Save filters/stickers metadata
     };
     await setDoc(videoRef, video);
     const user = await fetchFirestoreUser(myId);

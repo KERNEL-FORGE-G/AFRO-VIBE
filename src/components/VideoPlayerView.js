@@ -26,6 +26,7 @@ export const VideoPlayerView = ({
   onShare,
   enableTapControls = true,
   showPauseIndicator = false,
+  metadata = null,
 }) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -60,6 +61,21 @@ export const VideoPlayerView = ({
 
   const fixedUrl = useMemo(() => configService.fixMediaUrl(videoUrl), [videoUrl]);
   const fixedThumbnail = useMemo(() => configService.fixMediaUrl(thumbnail), [thumbnail]);
+
+  const filters = useMemo(() => ([
+    { id: 'original', overlay: 'transparent' },
+    { id: 'sunset', overlay: 'rgba(255, 94, 0, 0.18)' },
+    { id: 'royal', overlay: 'rgba(230, 0, 103, 0.18)' },
+    { id: 'gold', overlay: 'rgba(255, 170, 0, 0.16)' },
+    { id: 'cool', overlay: 'rgba(0, 176, 255, 0.14)' },
+    { id: 'noir', overlay: 'rgba(6, 6, 8, 0.32)' },
+    { id: 'vintage', overlay: 'rgba(121, 85, 72, 0.2)' },
+  ]), []);
+
+  const selectedFilter = useMemo(() => {
+    if (!metadata?.filterId) return filters[0];
+    return filters.find(f => f.id === metadata.filterId) || filters[0];
+  }, [metadata, filters]);
 
   const isYouTube = useMemo(
     () => videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')),
@@ -201,6 +217,34 @@ export const VideoPlayerView = ({
         />
       )}
 
+      {/* Filter Overlay */}
+      {selectedFilter && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: selectedFilter.overlay }
+          ]}
+        />
+      )}
+
+      {/* Stickers Overlay */}
+      {metadata?.stickers && metadata.stickers.length > 0 && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {metadata.stickers.map((s, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.stickerContainer,
+                { transform: [{ translateX: s.x }, { translateY: s.y }] }
+              ]}
+            >
+              <Text style={styles.stickerEmoji}>{s.icon}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {loading && (
         <View style={styles.loaderContainer} pointerEvents="none">
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -325,6 +369,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginTop: 10,
+  },
+  stickerContainer: {
+    position: 'absolute',
+    padding: 10,
+  },
+  stickerEmoji: {
+    fontSize: 40,
   },
   feedbackContainer: {
     ...StyleSheet.absoluteFillObject,
