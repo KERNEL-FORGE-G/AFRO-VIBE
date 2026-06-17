@@ -255,9 +255,9 @@ export const onlineAuthService = {
     } else {
       Linking.openURL(url);
       return new Promise((resolve) => {
-        const handleUrl = async (event) => {
+        const subscription = Linking.addEventListener('url', async (event) => {
           if (event.url.startsWith('afrovibe://auth/callback')) {
-            Linking.removeEventListener('url', handleUrl);
+            subscription.remove();
             const customToken = new URL(event.url).searchParams.get('customToken');
             if (customToken) {
               const cred = await signInWithCustomToken(auth, customToken);
@@ -266,8 +266,7 @@ export const onlineAuthService = {
               resolve({ user });
             }
           }
-        };
-        Linking.addEventListener('url', handleUrl);
+        });
       });
     }
     throw new Error(`Échec de l'authentification avec ${provider}`);

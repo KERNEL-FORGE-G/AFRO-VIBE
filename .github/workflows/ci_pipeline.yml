@@ -38,12 +38,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Pandoc and LaTeX
-        run: sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended
+        run: sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-xetex
       - name: Generate PDFs
         run: |
           mkdir -p dist/docs
           for file in *.md; do
-            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --metadata title="${file%.md}"
+            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --pdf-engine=xelatex --metadata title="${file%.md}"
           done
           cp logo/logo.png dist/docs/
       - name: Upload Docs
