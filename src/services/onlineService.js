@@ -118,7 +118,7 @@ const ensureUserProfile = async (firebaseUser, username, token = null) => {
   if (!snap.exists()) {
     const profile = {
       id: firebaseUser.uid,
-      username: username || firebaseUser.email?.split('@')[0] || 'user',
+      username: username || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'user',
       email: firebaseUser.email || '',
       fullName: firebaseUser.displayName || username || 'Utilisateur',
       avatar: firebaseUser.photoURL || 'logo.jpg',
@@ -242,8 +242,8 @@ export const onlineAuthService = {
           id: fbUser.uid,
           uid: fbUser.uid,
           email: fbUser.email,
-          username: fbUser.email?.split('@')[0],
-          fullName: fbUser.displayName,
+          username: fbUser.displayName || fbUser.email?.split('@')[0] || 'user',
+          fullName: fbUser.displayName || 'Utilisateur',
           avatar: fbUser.photoURL,
         }));
       } else {
@@ -398,12 +398,12 @@ export const onlineDbService = {
       return {
         id: comment.id,
         text: comment.text,
-        created_at: comment.created_at,
+        created_at: comment.created_at || new Date().toISOString(),
         time: '1m',
         user: {
-          uid: user?.id,
-          username: user?.username || 'user',
-          fullName: user?.fullName || 'Utilisateur',
+          uid: user?.id || comment.user_id,
+          username: user?.username || 'Utilisateur',
+          fullName: user?.fullName || user?.username || 'Utilisateur',
           avatar: user?.avatar || 'logo.jpg',
         },
       };
