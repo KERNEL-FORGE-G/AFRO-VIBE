@@ -9,7 +9,8 @@ import {
   StatusBar,
   Alert,
   Animated,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import {
@@ -78,7 +79,11 @@ export const CameraScreen = ({ navigation }) => {
       await cameraRef.current.startRecording({
         onRecordingFinished: (video) => {
           setIsRecording(false);
-          navigation.navigate('VideoEdit', { mediaUri: video.path, mediaType: 'video' });
+          let path = video.path;
+          if (Platform.OS === 'android' && !path.startsWith('file://')) {
+            path = `file://${path}`;
+          }
+          navigation.navigate('VideoEdit', { mediaUri: path, mediaType: 'video' });
         },
         onRecordingError: (error) => {
           console.error('Recording error:', error);

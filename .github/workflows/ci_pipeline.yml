@@ -12,6 +12,17 @@ jobs:
     outputs:
       artifact_path: android/app/build/outputs/apk/release/app-release.apk
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -36,14 +47,25 @@ jobs:
   generate-docs:
     runs-on: ubuntu-latest
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
       - uses: actions/checkout@v4
-      - name: Install Pandoc
-        run: sudo apt-get install -y pandoc
+      - name: Install Pandoc and LaTeX
+        run: sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-xetex fonts-noto-color-emoji
       - name: Generate PDFs
         run: |
           mkdir -p dist/docs
           for file in *.md; do
-            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --metadata title="${file%.md}"
+            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --pdf-engine=xelatex -V mainfont="DejaVu Sans" --metadata title="${file%.md}"
           done
           cp logo/logo.png dist/docs/
       - name: Upload Docs
