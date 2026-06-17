@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Pandoc and LaTeX
-        run: sudo apt-get install -y pandoc texlive-latex-base texlive-fonts-recommended
+        run: sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended
       - name: Generate PDFs
         run: |
           mkdir -p dist/docs
