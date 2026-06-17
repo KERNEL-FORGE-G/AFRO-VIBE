@@ -126,6 +126,7 @@ const VideoItemComponent = ({
         showPauseIndicator={isCurrentItem && userPaused && !commentsVisible}
         onSingleTap={onTogglePause}
         onDoubleTap={() => handleLike(item.id)}
+        onShare={() => handleShare(item)}
       />
 
       <Animated.View

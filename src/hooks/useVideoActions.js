@@ -107,9 +107,7 @@ export const useVideoActions = (setVideos) => {
   }, []);
 
   const handleFollowCreator = useCallback(async (creatorId) => {
-    let previousVideos;
     setVideos(prev => {
-      previousVideos = prev;
       return prev.map(v => {
         if (v.user.uid === creatorId) {
           return {

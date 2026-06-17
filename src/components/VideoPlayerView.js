@@ -8,6 +8,7 @@ import {
   Image,
   Text,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import Video from 'react-native-video';
 import YouTube from 'react-native-youtube-iframe';
@@ -22,12 +23,14 @@ export const VideoPlayerView = ({
   thumbnail,
   onSingleTap,
   onDoubleTap,
+  onShare,
   enableTapControls = true,
   showPauseIndicator = false,
 }) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
   const [showHeartAnim, setShowHeartAnim] = useState(false);
   const [showPauseAnim, setShowPauseAnim] = useState(false);
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -165,10 +168,11 @@ export const VideoPlayerView = ({
           poster={fixedThumbnail}
           posterResizeMode="cover"
           style={styles.videoPlayer}
-          resizeMode="cover"
+          resizeMode="contain"
           repeat
           paused={isPaused}
           muted={isMuted}
+          rate={playbackRate}
           playInBackground={false}
           playWhenInactive={false}
           controls={false}
@@ -234,6 +238,37 @@ export const VideoPlayerView = ({
       {enableTapControls && (
         <Pressable style={styles.tapLayer} onPress={handleTap} accessibilityRole="button" />
       )}
+
+      {/* Manual Controls Overlay */}
+      <View style={styles.controlsOverlay}>
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={() => {
+            const rates = [0.5, 1.0, 1.5, 2.0];
+            const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
+            setPlaybackRate(rates[nextIdx]);
+          }}
+        >
+          <Text style={styles.controlText}>{playbackRate}x</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={() => {
+            setUserPaused(!userPaused);
+            triggerPauseAnim(!userPaused);
+            onSingleTap?.(!userPaused);
+          }}
+        >
+          <SVGIcon name={isPaused ? "play" : "pause"} size={24} color={COLORS.text} />
+        </TouchableOpacity>
+
+        {onShare && (
+          <TouchableOpacity style={styles.controlBtn} onPress={onShare}>
+            <SVGIcon name="share" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -257,6 +292,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: '100%',
     height: '100%',
+    alignSelf: 'center',
   },
   youtubeContainer: {
     width: '100%',
@@ -300,6 +336,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     borderRadius: 40,
     padding: 16,
+  },
+  controlsOverlay: {
+    position: 'absolute',
+    bottom: 80,
+    right: 10,
+    zIndex: 30,
+    gap: 15,
+    alignItems: 'center',
+  },
+  controlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  controlText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 
