@@ -9,7 +9,8 @@ import {
   StatusBar,
   Alert,
   Animated,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import {

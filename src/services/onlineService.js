@@ -55,6 +55,7 @@ const toClientUser = (user, extra = {}) => ({
   following: user.following || 0,
   likes: user.likes || 0,
   bio: user.bio || '',
+  authToken: user.authToken || null,
   ...extra,
 });
 
@@ -128,12 +129,17 @@ const ensureUserProfile = async (firebaseUser, username, token = null) => {
       bio: '',
       isVerified: false,
       created_at: new Date().toISOString(),
-      authToken: token, // AJOUTÉ
+      authToken: token,
     };
     await setDoc(ref, profile);
     return toClientUser(profile);
   }
-  return toClientUser({ id: snap.id, ...snap.data() });
+  const existingData = snap.data();
+  if (token && existingData.authToken !== token) {
+    await updateDoc(ref, { authToken: token });
+    existingData.authToken = token;
+  }
+  return toClientUser({ id: snap.id, ...existingData });
 };
 
 const createNotification = async ({ toUserId, fromUserId, type, message, videoId }) => {
@@ -210,7 +216,7 @@ export const onlineAuthService = {
       const credential = GoogleAuthProvider.credential(idToken);
       const auth = getFirebaseAuth();
       const cred = await signInWithCredential(auth, credential);
-      const user = await ensureUserProfile(cred.user);
+      const user = await ensureUserProfile(cred.user, null, idToken);
       triggerAuthListeners(user);
       return { user };
     } catch (error) {
