@@ -59,8 +59,10 @@ export const authService = {
 
   signInWithAuthentifictor: (provider) => getActiveService().auth.signInWithAuthentifictor(provider),
 
-  createUserWithEmailAndPassword: (email, password, username) =>
-    getActiveService().auth.createUserWithEmailAndPassword(email, password, username),
+  createUserWithEmailAndPassword: (email, password, username) => {
+    const derivedUsername = username || email.split('@')[0];
+    return getActiveService().auth.createUserWithEmailAndPassword(email, password, derivedUsername);
+  },
 
   signOut: () => getActiveService().auth.signOut(),
 

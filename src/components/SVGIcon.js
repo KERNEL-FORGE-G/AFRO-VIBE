@@ -1,6 +1,6 @@
 // Custom SVG Icon Collection for Afro Vibe
 import React from 'react';
-import Svg, { Path, Circle, Rect, Path as SvgPath, Polygon, G, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Polygon, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { COLORS } from '../styles/theme';
 
 export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
@@ -46,6 +46,13 @@ export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
           <Path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill={color} />
         </Svg>
       );
+
+    case 'bookmark':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z" fill={color} />
+        </Svg>
+      );
       
     case 'profile':
       return (
@@ -71,7 +78,7 @@ export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
     case 'share':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-          <Path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z" fill={color} />
+          <Path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z" fill={color} />
         </Svg>
       );
       
@@ -114,6 +121,13 @@ export const SVGIcon = ({ name, size = 24, color = COLORS.text, style }) => {
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
           <Path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" fill={color} />
+        </Svg>
+      );
+
+    case 'flip':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+          <Path d="M19 8l-4 4h3c0 3.31-2.69 6-6 6-1.01 0-1.97-.25-2.8-.7l-1.46 1.46C8.97 19.54 10.43 20 12 20c4.42 0 8-3.58 8-8h3l-4-4zM6 12c0-3.31 2.69-6 6-6 1.01 0 1.97.25 2.8.7l1.46-1.46C15.03 4.46 13.57 4 12 4c-4.42 0-8 3.58-8 8H1l4 4 4-4H6z" fill={color} />
         </Svg>
       );
       

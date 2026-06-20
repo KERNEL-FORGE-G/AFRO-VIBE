@@ -41,7 +41,7 @@ const CommentItem = memo(({ item }) => {
   );
 });
 
-export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
+export const CommentsBottomSheet = ({ visible, onClose, videoId, onCommentAdded }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -86,6 +86,7 @@ export const CommentsBottomSheet = ({ visible, onClose, videoId }) => {
     };
 
     setComments(prev => [optimisticComment, ...prev]);
+    if (onCommentAdded) onCommentAdded();
 
     try {
       const realComment = await dbService.addComment(videoId, text);

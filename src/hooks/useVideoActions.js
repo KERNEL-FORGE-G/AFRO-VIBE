@@ -92,14 +92,27 @@ export const useVideoActions = (setVideos) => {
 
   const handleSaveOffline = useCallback(async (video) => {
     try {
-      await offlineService.saveVideoOffline({
-        id: video.id,
-        videoUri: video.videoUrl,
-        caption: video.caption,
-        category: video.category,
-        audioName: video.audioName,
-      });
-      showToast('Vidéo sauvegardée (Hors ligne)', 'success');
+      showToast('Téléchargement en cours...', 'info');
+      const RNFS = require('react-native-fs');
+      const localFile = `${RNFS.DocumentDirectoryPath}/video_${video.id}.mp4`;
+      
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: video.videoUrl,
+        toFile: localFile,
+      }).promise;
+
+      if (downloadResult.statusCode === 200) {
+        await offlineService.saveVideoOffline({
+          id: video.id,
+          videoUri: `file://${localFile}`,
+          caption: video.caption,
+          category: video.category,
+          audioName: video.audioName,
+        });
+        showToast('Vidéo sauvegardée (Hors ligne)', 'success');
+      } else {
+        throw new Error('Download failed');
+      }
     } catch (err) {
       console.error('Offline save error:', err);
       showToast('Erreur lors de la sauvegarde', 'error');

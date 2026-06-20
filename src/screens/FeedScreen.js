@@ -31,9 +31,69 @@ const BOTTOM_BAR_HEIGHT = 60; // Approximate bottom tab bar height
 const FEED_HEIGHT = height - BOTTOM_BAR_HEIGHT;
 const VIDEO_CACHE_KEY = 'AFROVIBE_FEED_CACHE';
 
-// Spin animation for vinyl disk
+const FloatingNote = ({ onComplete }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 2000,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(onComplete);
+  }, [anim, onComplete]);
+
+  const translateY = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -80],
+  });
+
+  const translateX = anim.interpolate({
+    inputRange: [0, 0.3, 0.6, 1],
+    outputRange: [0, -15, 15, -10],
+  });
+
+  const opacity = anim.interpolate({
+    inputRange: [0, 0.2, 0.8, 1],
+    outputRange: [0, 1, 0.8, 0],
+  });
+
+  const scale = anim.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0.5, 1.2, 0.6],
+  });
+
+  const rotate = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', (Math.random() > 0.5 ? '45deg' : '-45deg')],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.floatingNote,
+        {
+          transform: [
+            { translateY },
+            { translateX },
+            { scale },
+            { rotate },
+          ],
+          opacity,
+        }
+      ]}
+      pointerEvents="none"
+    >
+      <SVGIcon name="music" size={14} color={COLORS.accent} />
+    </Animated.View>
+  );
+};
+
+// Spin animation for vinyl disk and floating music notes
 const SpinVinyl = memo(({ isPlaying }) => {
   const spinValue = useRef(new Animated.Value(0)).current;
+  const [notes, setNotes] = useState([]);
+  const noteId = useRef(0);
 
   useEffect(() => {
     let animation;
@@ -55,20 +115,48 @@ const SpinVinyl = memo(({ isPlaying }) => {
     };
   }, [isPlaying, spinValue]);
 
+  useEffect(() => {
+    if (!isPlaying) {
+      setNotes([]);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setNotes((prev) => [
+        ...prev,
+        { id: noteId.current++ }
+      ]);
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+  const removeNote = (id) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
   return (
-    <Animated.View style={[styles.vinylOuter, { transform: [{ rotate: spin }] }]}>
-      <View style={styles.vinylInner}>
-        <Image
-          source={require('../assets/images/logo.jpg')}
-          style={styles.vinylCenter}
+    <View style={styles.vinylWrapper}>
+      {notes.map((note) => (
+        <FloatingNote
+          key={note.id}
+          onComplete={() => removeNote(note.id)}
         />
-      </View>
-    </Animated.View>
+      ))}
+      <Animated.View style={[styles.vinylOuter, { transform: [{ rotate: spin }] }]}>
+        <View style={styles.vinylInner}>
+          <Image
+            source={require('../assets/images/logo.jpg')}
+            style={styles.vinylCenter}
+          />
+        </View>
+      </Animated.View>
+    </View>
   );
 });
 
@@ -195,21 +283,22 @@ const VideoItemComponent = ({
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => handleShare(item)}
+          onPress={() => handleBookmark(item)}
         >
-          <SVGIcon name="share" size={32} color={COLORS.text} />
-          <Text style={styles.actionText}>{item.shares}</Text>
+          <SVGIcon
+            name="bookmark"
+            size={32}
+            color={item.isBookmarked ? COLORS.accent : COLORS.text}
+          />
+          <Text style={styles.actionText}>{item.bookmarksCount !== undefined ? item.bookmarksCount : 0}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => handleBookmark(item)}
+          onPress={() => handleShare(item)}
         >
-          <SVGIcon
-            name="inbox"
-            size={30}
-            color={item.isBookmarked ? COLORS.accent : COLORS.text}
-          />
+          <SVGIcon name="share" size={32} color={COLORS.text} />
+          <Text style={styles.actionText}>{item.shares}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -503,6 +592,15 @@ export const FeedScreen = ({ route, navigation }) => {
         visible={commentsVisible}
         onClose={() => setCommentsVisible(false)}
         videoId={activeVideoId}
+        onCommentAdded={() => {
+          setVideos(prev => prev.map(v => {
+            if (v.id === activeVideoId) {
+              const currentComments = parseInt(v.commentsCount || '0', 10);
+              return { ...v, commentsCount: (currentComments + 1).toString() };
+            }
+            return v;
+          }));
+        }}
       />
     </View>
   );
@@ -618,23 +716,25 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    borderWidth: 2,
-    borderColor: COLORS.accent,
+    borderWidth: 1.5,
+    borderColor: COLORS.text,
   },
   followBtn: {
     position: 'absolute',
     bottom: -6,
-    left: 15,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    left: 14,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.text,
   },
   followBtnText: {
     color: COLORS.text,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
     lineHeight: 14,
   },
@@ -657,7 +757,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#333',
-    marginTop: SPACING.sm,
   },
   vinylInner: {
     width: 30,
@@ -671,6 +770,18 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
+  },
+  vinylWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: SPACING.sm,
+    width: 46,
+    height: 46,
+  },
+  floatingNote: {
+    position: 'absolute',
+    zIndex: 99,
   },
 });
 

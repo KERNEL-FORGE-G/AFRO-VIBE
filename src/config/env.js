@@ -25,7 +25,7 @@ export const ENV = {
   },
 
   google: {
-    webClientId: '60620850112-48amj0p32oojgi73hmduhs5m41jr641a.apps.googleusercontent.com',
+    webClientId: '35830371631-9ntn2m59pnbditcr6mebotl27i86ovik.apps.googleusercontent.com',
   },
 
   localApiUrl: 'http://10.0.2.2:3000/api',

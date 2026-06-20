@@ -9,11 +9,62 @@ import {
   Text,
   Animated,
 } from 'react-native';
+
 import Video from 'react-native-video';
 import YouTube from 'react-native-youtube-iframe';
 import { COLORS } from '../styles/theme';
 import SVGIcon from './SVGIcon';
 import { configService } from '../services/apiService';
+
+const FloatingHeart = ({ x, y, onComplete }) => {
+  const scale = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const rotateVal = useRef((Math.random() * 40 - 20) + 'deg').current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: 1.2,
+        friction: 4,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 800,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(onComplete);
+  }, [scale, translateY, opacity, onComplete]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.floatingHeart,
+        {
+          left: x - 40,
+          top: y - 40,
+          transform: [
+            { scale },
+            { translateY },
+            { rotate: rotateVal }
+          ],
+          opacity,
+        }
+      ]}
+      pointerEvents="none"
+    >
+      <SVGIcon name="heart" size={80} color={COLORS.secondary} />
+    </Animated.View>
+  );
+};
 
 export const VideoPlayerView = ({
   videoUrl,
@@ -28,9 +79,8 @@ export const VideoPlayerView = ({
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
-  const [showHeartAnim, setShowHeartAnim] = useState(false);
+  const [hearts, setHearts] = useState([]);
   const [showPauseAnim, setShowPauseAnim] = useState(false);
-  const heartScale = useRef(new Animated.Value(0)).current;
   const pauseScale = useRef(new Animated.Value(0)).current;
   const pauseOpacity = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
@@ -38,6 +88,40 @@ export const VideoPlayerView = ({
   const wasForcePaused = useRef(forcePaused);
 
   const isPaused = forcePaused || userPaused;
+
+  const playButtonScale = useRef(new Animated.Value(isPaused ? 1 : 0.7)).current;
+  const playButtonOpacity = useRef(new Animated.Value(isPaused ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (isPaused) {
+      Animated.parallel([
+        Animated.spring(playButtonScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(playButtonOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(playButtonScale, {
+          toValue: 0.7,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(playButtonOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [isPaused, playButtonScale, playButtonOpacity]);
 
   useEffect(() => {
     // If the component is force-paused from outside (e.g., screen lost focus or comment sheet opened),
@@ -90,17 +174,18 @@ export const VideoPlayerView = ({
     ]).start(() => setShowPauseAnim(false));
   }, [pauseOpacity, pauseScale]);
 
-  const handleTap = useCallback(() => {
+  const handleTap = useCallback((event) => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 280;
 
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
       lastTap.current = 0;
-      setShowHeartAnim(true);
-      Animated.sequence([
-        Animated.spring(heartScale, { toValue: 1.5, friction: 3, useNativeDriver: true }),
-        Animated.timing(heartScale, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start(() => setShowHeartAnim(false));
+      const { locationX, locationY } = event.nativeEvent;
+      // Add a floating heart at the coordinates
+      setHearts((prev) => [
+        ...prev,
+        { id: now, x: locationX, y: locationY },
+      ]);
       onDoubleTap?.();
       return;
     }
@@ -123,7 +208,7 @@ export const VideoPlayerView = ({
         return next;
       });
     }, DOUBLE_PRESS_DELAY);
-  }, [heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
+  }, [onDoubleTap, onSingleTap, triggerPauseAnim]);
 
   if (!videoUrl) {
     return (
@@ -203,13 +288,16 @@ export const VideoPlayerView = ({
         </View>
       )}
 
-      {showHeartAnim && (
-        <View style={styles.feedbackContainer} pointerEvents="none">
-          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-            <SVGIcon name="heart" size={80} color={COLORS.secondary} />
-          </Animated.View>
-        </View>
-      )}
+      {hearts.map((heart) => (
+        <FloatingHeart
+          key={heart.id}
+          x={heart.x}
+          y={heart.y}
+          onComplete={() => {
+            setHearts((prev) => prev.filter((h) => h.id !== heart.id));
+          }}
+        />
+      ))}
 
       {showPauseAnim && (
         <View style={styles.feedbackContainer} pointerEvents="none">
@@ -223,12 +311,19 @@ export const VideoPlayerView = ({
         </View>
       )}
 
-      {(enableTapControls || showPauseIndicator) && isPaused && !showPauseAnim && (
-        <View style={styles.feedbackContainer} pointerEvents="none">
-          <View style={styles.playBadge}>
-            <SVGIcon name="play" size={48} color="rgba(255,255,255,0.9)" />
-          </View>
-        </View>
+      {(enableTapControls || showPauseIndicator) && (
+        <Animated.View
+          style={[
+            styles.feedbackContainer,
+            {
+              opacity: playButtonOpacity,
+              transform: [{ scale: playButtonScale }],
+            }
+          ]}
+          pointerEvents="none"
+        >
+          <SVGIcon name="play" size={64} color="rgba(255,255,255,0.85)" />
+        </Animated.View>
       )}
 
       {enableTapControls && (
@@ -300,6 +395,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
     borderRadius: 40,
     padding: 16,
+  },
+  floatingHeart: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99,
   },
 });
 

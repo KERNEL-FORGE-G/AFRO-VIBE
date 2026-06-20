@@ -311,11 +311,17 @@ export const onlineDbService = {
     assertFirebase();
     const db = getFirestoreDb();
     const myId = currentUser?.uid;
-    const snap = await getDocs(query(
-      collection(db, 'videos'),
-      where('user_id', '==', userId),
-      orderBy('created_at', 'desc')
-    ));
+    let snap;
+    try {
+      snap = await getDocs(query(
+        collection(db, 'videos'),
+        where('user_id', '==', userId)
+      ));
+    } catch (err) {
+      console.warn('Index manquant pour getUserVideos, filtrage client en fallback.', err);
+      const allSnap = await getDocs(query(collection(db, 'videos')));
+      snap = { docs: allSnap.docs.filter(d => d.data().user_id === userId) };
+    }
 
     const bookmarkSnap = myId
       ? await getDocs(query(collection(db, 'bookmarks'), where('user_id', '==', myId)))
@@ -341,7 +347,11 @@ export const onlineDbService = {
         isBookmarked: bookmarkedIds.has(video.id),
       });
     }));
-    return videos;
+    return videos.sort((a, b) => {
+      const timeA = snap.docs.find(d => d.id === a.id)?.data().created_at || '';
+      const timeB = snap.docs.find(d => d.id === b.id)?.data().created_at || '';
+      return String(timeB).localeCompare(String(timeA));
+    });
   },
 
   likeVideo: async (videoId) => {
@@ -355,13 +365,19 @@ export const onlineDbService = {
 
     const result = await runTransaction(db, async (tx) => {
       const likeDoc = await tx.get(likeRef);
+      const videoDoc = await tx.get(videoRef);
+      const videoCreatorId = videoDoc.data()?.user_id;
+      const creatorRef = videoCreatorId ? doc(db, 'users', videoCreatorId) : null;
+
       if (likeDoc.exists()) {
         tx.delete(likeRef);
         tx.update(videoRef, { likes: increment(-1) });
+        if (creatorRef) tx.update(creatorRef, { likes: increment(-1) });
         return { isLiked: false };
       }
       tx.set(likeRef, { id: likeId, video_id: videoId, user_id: myId, created_at: new Date().toISOString() });
       tx.update(videoRef, { likes: increment(1) });
+      if (creatorRef) tx.update(creatorRef, { likes: increment(1) });
       return { isLiked: true };
     });
 
@@ -665,8 +681,7 @@ export const onlineDbService = {
     const q = query(
       collection(db, 'notifications'),
       where('user_id', '==', userId),
-      where('read', '==', false),
-      orderBy('created_at', 'desc')
+      where('read', '==', false)
     );
 
     return onSnapshot(q, async (snap) => {
@@ -679,9 +694,10 @@ export const onlineDbService = {
           message: notif.message,
           time: formatNotifTime(notif.created_at),
           user: fromUser ? toClientUser(fromUser) : { username: 'user' },
+          _createdAt: notif.created_at,
         };
       }));
-      callback(items);
+      callback(items.sort((a, b) => String(b._createdAt).localeCompare(String(a._createdAt))));
     });
   },
 
