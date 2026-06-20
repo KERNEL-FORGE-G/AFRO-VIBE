@@ -9,7 +9,8 @@ import {
   StatusBar,
   Alert,
   Animated,
-  Linking
+  Linking,
+  Platform
 } from 'react-native';
 import { COLORS, SPACING } from '../styles/theme';
 import {
@@ -50,7 +51,7 @@ export const CameraScreen = ({ navigation }) => {
       if (!hasCameraPermission) await requestCameraPermission();
       if (!hasMicrophonePermission) await requestMicrophonePermission();
     })();
-  }, [hasCameraPermission, hasMicrophonePermission]);
+  }, [hasCameraPermission, hasMicrophonePermission, requestCameraPermission, requestMicrophonePermission]);
 
   const handleUpload = async () => {
     try {
@@ -78,7 +79,10 @@ export const CameraScreen = ({ navigation }) => {
       await cameraRef.current.startRecording({
         onRecordingFinished: (video) => {
           setIsRecording(false);
-          navigation.navigate('VideoEdit', { mediaUri: video.path, mediaType: 'video' });
+          const mediaUri = Platform.OS === 'android' && !video.path.startsWith('file://')
+            ? `file://${video.path}`
+            : video.path;
+          navigation.navigate('VideoEdit', { mediaUri, mediaType: 'video' });
         },
         onRecordingError: (error) => {
           console.error('Recording error:', error);

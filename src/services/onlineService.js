@@ -93,14 +93,34 @@ const triggerAuthListeners = (user) => {
 const decodeJwt = (token) => {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+
+    // Polyfill atob for React Native environment if not present
+    const atobPolyfill = (str) => {
+      if (typeof global.atob === 'function') return global.atob(str);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+      let output = '';
+      str = String(str).replace(/[=]+$/, '');
+      for (
+        let bc = 0, bs, buffer, idx = 0;
+        (buffer = str.charAt(idx++));
+        ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
+          ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+          : 0
+      ) {
+        buffer = chars.indexOf(buffer);
+      }
+      return output;
+    };
+
     const jsonPayload = decodeURIComponent(
-      atob(base64)
+      atobPolyfill(base64)
         .split('')
         .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
     return JSON.parse(jsonPayload);
   } catch (e) {
+    console.error('[onlineService] Error decoding JWT:', e);
     return null;
   }
 };
@@ -128,7 +148,6 @@ const ensureUserProfile = async (firebaseUser, username, token = null) => {
       bio: '',
       isVerified: false,
       created_at: new Date().toISOString(),
-      authToken: token, // AJOUTÉ
     };
     await setDoc(ref, profile);
     return toClientUser(profile);
