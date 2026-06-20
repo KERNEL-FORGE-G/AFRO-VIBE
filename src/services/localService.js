@@ -166,7 +166,7 @@ export const localDbService = {
     body: JSON.stringify({ text }),
   }),
 
-  uploadVideo: async (videoUri, caption, category) => {
+  uploadVideo: async (videoUri, caption, category, metadata = {}) => {
     const formData = new FormData();
     formData.append('video', {
       uri: Platform.OS === 'android' ? videoUri : videoUri.replace('file://', ''),
@@ -175,6 +175,7 @@ export const localDbService = {
     });
     formData.append('caption', caption);
     formData.append('category', category);
+    formData.append('metadata', JSON.stringify(metadata));
     formData.append('useCloudinary', 'false');
 
     const res = await fetch(`${API_URL}/videos`, {

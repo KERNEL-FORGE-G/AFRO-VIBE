@@ -8,63 +8,13 @@ import {
   Image,
   Text,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
-
 import Video from 'react-native-video';
 import YouTube from 'react-native-youtube-iframe';
 import { COLORS } from '../styles/theme';
 import SVGIcon from './SVGIcon';
 import { configService } from '../services/apiService';
-
-const FloatingHeart = ({ x, y, onComplete }) => {
-  const scale = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
-  const rotateVal = useRef((Math.random() * 40 - 20) + 'deg').current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1.2,
-        friction: 4,
-        tension: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 800,
-        delay: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(onComplete);
-  }, [scale, translateY, opacity, onComplete]);
-
-  return (
-    <Animated.View
-      style={[
-        styles.floatingHeart,
-        {
-          left: x - 40,
-          top: y - 40,
-          transform: [
-            { scale },
-            { translateY },
-            { rotate: rotateVal }
-          ],
-          opacity,
-        }
-      ]}
-      pointerEvents="none"
-    >
-      <SVGIcon name="heart" size={80} color={COLORS.secondary} />
-    </Animated.View>
-  );
-};
 
 export const VideoPlayerView = ({
   videoUrl,
@@ -73,14 +23,18 @@ export const VideoPlayerView = ({
   thumbnail,
   onSingleTap,
   onDoubleTap,
+  onShare,
   enableTapControls = true,
   showPauseIndicator = false,
+  metadata = null,
 }) => {
   const [loading, setLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
-  const [hearts, setHearts] = useState([]);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [showHeartAnim, setShowHeartAnim] = useState(false);
   const [showPauseAnim, setShowPauseAnim] = useState(false);
+  const heartScale = useRef(new Animated.Value(0)).current;
   const pauseScale = useRef(new Animated.Value(0)).current;
   const pauseOpacity = useRef(new Animated.Value(0)).current;
   const lastTap = useRef(0);
@@ -88,40 +42,6 @@ export const VideoPlayerView = ({
   const wasForcePaused = useRef(forcePaused);
 
   const isPaused = forcePaused || userPaused;
-
-  const playButtonScale = useRef(new Animated.Value(isPaused ? 1 : 0.7)).current;
-  const playButtonOpacity = useRef(new Animated.Value(isPaused ? 1 : 0)).current;
-
-  useEffect(() => {
-    if (isPaused) {
-      Animated.parallel([
-        Animated.spring(playButtonScale, {
-          toValue: 1,
-          friction: 6,
-          tension: 80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(playButtonOpacity, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        })
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(playButtonScale, {
-          toValue: 0.7,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(playButtonOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }
-  }, [isPaused, playButtonScale, playButtonOpacity]);
 
   useEffect(() => {
     // If the component is force-paused from outside (e.g., screen lost focus or comment sheet opened),
@@ -141,6 +61,21 @@ export const VideoPlayerView = ({
 
   const fixedUrl = useMemo(() => configService.fixMediaUrl(videoUrl), [videoUrl]);
   const fixedThumbnail = useMemo(() => configService.fixMediaUrl(thumbnail), [thumbnail]);
+
+  const filters = useMemo(() => ([
+    { id: 'original', overlay: 'transparent' },
+    { id: 'sunset', overlay: 'rgba(255, 94, 0, 0.18)' },
+    { id: 'royal', overlay: 'rgba(230, 0, 103, 0.18)' },
+    { id: 'gold', overlay: 'rgba(255, 170, 0, 0.16)' },
+    { id: 'cool', overlay: 'rgba(0, 176, 255, 0.14)' },
+    { id: 'noir', overlay: 'rgba(6, 6, 8, 0.32)' },
+    { id: 'vintage', overlay: 'rgba(121, 85, 72, 0.2)' },
+  ]), []);
+
+  const selectedFilter = useMemo(() => {
+    if (!metadata?.filterId) return filters[0];
+    return filters.find(f => f.id === metadata.filterId) || filters[0];
+  }, [metadata, filters]);
 
   const isYouTube = useMemo(
     () => videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')),
@@ -174,18 +109,17 @@ export const VideoPlayerView = ({
     ]).start(() => setShowPauseAnim(false));
   }, [pauseOpacity, pauseScale]);
 
-  const handleTap = useCallback((event) => {
+  const handleTap = useCallback(() => {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 280;
 
     if (now - lastTap.current < DOUBLE_PRESS_DELAY) {
       lastTap.current = 0;
-      const { locationX, locationY } = event.nativeEvent;
-      // Add a floating heart at the coordinates
-      setHearts((prev) => [
-        ...prev,
-        { id: now, x: locationX, y: locationY },
-      ]);
+      setShowHeartAnim(true);
+      Animated.sequence([
+        Animated.spring(heartScale, { toValue: 1.5, friction: 3, useNativeDriver: true }),
+        Animated.timing(heartScale, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => setShowHeartAnim(false));
       onDoubleTap?.();
       return;
     }
@@ -208,7 +142,7 @@ export const VideoPlayerView = ({
         return next;
       });
     }, DOUBLE_PRESS_DELAY);
-  }, [onDoubleTap, onSingleTap, triggerPauseAnim]);
+  }, [heartScale, onDoubleTap, onSingleTap, triggerPauseAnim]);
 
   if (!videoUrl) {
     return (
@@ -250,10 +184,11 @@ export const VideoPlayerView = ({
           poster={fixedThumbnail}
           posterResizeMode="cover"
           style={styles.videoPlayer}
-          resizeMode="cover"
+          resizeMode="contain"
           repeat
           paused={isPaused}
           muted={isMuted}
+          rate={playbackRate}
           playInBackground={false}
           playWhenInactive={false}
           controls={false}
@@ -282,22 +217,47 @@ export const VideoPlayerView = ({
         />
       )}
 
+      {/* Filter Overlay */}
+      {selectedFilter && (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: selectedFilter.overlay }
+          ]}
+        />
+      )}
+
+      {/* Stickers Overlay */}
+      {metadata?.stickers && metadata.stickers.length > 0 && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {metadata.stickers.map((s, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.stickerContainer,
+                { transform: [{ translateX: s.x }, { translateY: s.y }] }
+              ]}
+            >
+              <Text style={styles.stickerEmoji}>{s.icon}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {loading && (
         <View style={styles.loaderContainer} pointerEvents="none">
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
 
-      {hearts.map((heart) => (
-        <FloatingHeart
-          key={heart.id}
-          x={heart.x}
-          y={heart.y}
-          onComplete={() => {
-            setHearts((prev) => prev.filter((h) => h.id !== heart.id));
-          }}
-        />
-      ))}
+      {showHeartAnim && (
+        <View style={styles.feedbackContainer} pointerEvents="none">
+          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+            <SVGIcon name="heart" size={80} color={COLORS.secondary} />
+          </Animated.View>
+        </View>
+      )}
 
       {showPauseAnim && (
         <View style={styles.feedbackContainer} pointerEvents="none">
@@ -311,24 +271,48 @@ export const VideoPlayerView = ({
         </View>
       )}
 
-      {(enableTapControls || showPauseIndicator) && (
-        <Animated.View
-          style={[
-            styles.feedbackContainer,
-            {
-              opacity: playButtonOpacity,
-              transform: [{ scale: playButtonScale }],
-            }
-          ]}
-          pointerEvents="none"
-        >
-          <SVGIcon name="play" size={64} color="rgba(255,255,255,0.85)" />
-        </Animated.View>
+      {(enableTapControls || showPauseIndicator) && isPaused && !showPauseAnim && (
+        <View style={styles.feedbackContainer} pointerEvents="none">
+          <View style={styles.playBadge}>
+            <SVGIcon name="play" size={48} color="rgba(255,255,255,0.9)" />
+          </View>
+        </View>
       )}
 
       {enableTapControls && (
         <Pressable style={styles.tapLayer} onPress={handleTap} accessibilityRole="button" />
       )}
+
+      {/* Manual Controls Overlay */}
+      <View style={styles.controlsOverlay}>
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={() => {
+            const rates = [0.5, 1.0, 1.5, 2.0];
+            const nextIdx = (rates.indexOf(playbackRate) + 1) % rates.length;
+            setPlaybackRate(rates[nextIdx]);
+          }}
+        >
+          <Text style={styles.controlText}>{playbackRate}x</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.controlBtn}
+          onPress={() => {
+            setUserPaused(!userPaused);
+            triggerPauseAnim(!userPaused);
+            onSingleTap?.(!userPaused);
+          }}
+        >
+          <SVGIcon name={isPaused ? "play" : "pause"} size={24} color={COLORS.text} />
+        </TouchableOpacity>
+
+        {onShare && (
+          <TouchableOpacity style={styles.controlBtn} onPress={onShare}>
+            <SVGIcon name="share" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 };
@@ -352,6 +336,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: '100%',
     height: '100%',
+    alignSelf: 'center',
   },
   youtubeContainer: {
     width: '100%',
@@ -385,6 +370,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
   },
+  stickerContainer: {
+    position: 'absolute',
+    padding: 10,
+  },
+  stickerEmoji: {
+    fontSize: 40,
+  },
   feedbackContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -396,14 +388,27 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     padding: 16,
   },
-  floatingHeart: {
+  controlsOverlay: {
     position: 'absolute',
-    width: 80,
-    height: 80,
+    bottom: 80,
+    right: 10,
+    zIndex: 30,
+    gap: 15,
+    alignItems: 'center',
+  },
+  controlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  controlText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
-
-export default VideoPlayerView;

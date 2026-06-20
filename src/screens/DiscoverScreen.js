@@ -8,6 +8,8 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  Alert,
+  Linking,
   Dimensions,
   StatusBar,
   ActivityIndicator,
@@ -20,7 +22,7 @@ import SVGIcon from '../components/SVGIcon';
 import TribalPattern from '../components/TribalPattern';
 import VideoPlayerView from '../components/VideoPlayerView';
 import GridSkeleton from '../components/GridSkeleton';
-import apiService from '../services/apiService';
+import apiService, { configService } from '../services/apiService';
 import { MOCK_CHALLENGES } from '../services/mockData';
 
 const { width } = Dimensions.get('window');
@@ -61,9 +63,16 @@ const VideoGridItem = memo(({ item, navigation }) => {
             style={styles.creatorRow}
             onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}
           >
-            <View style={styles.miniAvatar}>
-              <Text style={styles.avatarInitial}>{item.user?.username?.[0]?.toUpperCase() || 'U'}</Text>
-            </View>
+            {item.user?.avatar ? (
+              <Image
+                source={{ uri: configService.fixMediaUrl(item.user.avatar) }}
+                style={styles.miniAvatarImage}
+              />
+            ) : (
+              <View style={styles.miniAvatar}>
+                <Text style={styles.avatarInitial}>{item.user?.username?.[0]?.toUpperCase() || 'U'}</Text>
+              </View>
+            )}
             <Text style={styles.gridUsername} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
           </TouchableOpacity>
         </View>
@@ -71,6 +80,12 @@ const VideoGridItem = memo(({ item, navigation }) => {
     </Animated.View>
   );
 });
+
+const EVENT_LINKS = [
+  { name: 'Afro Vibe Challenge 2025', url: 'https://afrovibe.africa/events/challenge2025' },
+  { name: 'Gala de la Danse Africaine', url: 'https://afrovibe.africa/events/gala' },
+  { name: 'Festival des Vibes', url: 'https://afrovibe.africa/events/festival' },
+];
 
 export const DiscoverScreen = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -204,7 +219,22 @@ export const DiscoverScreen = ({ navigation }) => {
                   <Text style={styles.bannerSubtitle}>Partage ton style, fais vibrer l’Afrique !</Text>
                   <TouchableOpacity
                     style={styles.bannerBtn}
-                    onPress={() => navigation.navigate('Camera')}
+                    onPress={() => {
+                      Alert.alert(
+                        'Participer à un événement',
+                        'Choisissez un événement pour voir les détails et participer :',
+                        [
+                          ...EVENT_LINKS.map(event => ({
+                            text: event.name,
+                            onPress: () => Linking.openURL(event.url).catch(err =>
+                              Alert.alert('Erreur', 'Impossible d\'ouvrir le lien')
+                            )
+                          })),
+                          { text: 'Créer une vidéo', onPress: () => navigation.navigate('Camera'), style: 'default' },
+                          { text: 'Annuler', style: 'cancel' }
+                        ]
+                      );
+                    }}
                   >
                     <Text style={styles.bannerBtnText}>Participer</Text>
                   </TouchableOpacity>
@@ -275,6 +305,7 @@ const styles = StyleSheet.create({
   gridCaption: { color: COLORS.text, fontSize: 12, fontWeight: '500', lineHeight: 16, marginBottom: 8 },
   creatorRow: { flexDirection: 'row', alignItems: 'center' },
   miniAvatar: { width: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.accent },
+  miniAvatarImage: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: COLORS.accent },
   avatarInitial: { color: COLORS.text, fontSize: 10, fontWeight: 'bold' },
   gridUsername: { color: COLORS.textSecondary, fontSize: 11, marginLeft: 6, flex: 1 },
 });
