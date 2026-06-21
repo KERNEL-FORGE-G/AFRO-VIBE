@@ -37,13 +37,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Pandoc
-        run: sudo apt-get install -y pandoc
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-xetex fonts-noto-color-emoji fonts-dejavu-core
       - name: Generate PDFs
         run: |
           mkdir -p dist/docs
           for file in *.md; do
-            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --metadata title="${file%.md}"
+            pandoc "$file" -o "dist/docs/${file%.md}.pdf" --pdf-engine=xelatex -V mainfont="DejaVu Sans" --metadata title="${file%.md}"
           done
           cp logo/logo.png dist/docs/
       - name: Upload Docs

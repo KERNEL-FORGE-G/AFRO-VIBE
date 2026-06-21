@@ -9,23 +9,27 @@ import { initNotifications, showNotification } from './src/services/notification
 import { configService, authService, dbService } from './src/services/apiService';
 import outboxService from './src/services/outboxService';
 import LoadingScreen from './src/components/LoadingScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 function App() {
   const [appReady, setAppReady] = useState(false);
+  const [initError, setInitError] = useState(null);
+
+  const initializeApp = async () => {
+    setInitError(null);
+    setAppReady(false);
+    try {
+      await configService.loadConfig();
+      await initNotifications();
+      setAppReady(true);
+    } catch (error) {
+      console.error('Erreur lors de l\'initialisation de l\'app:', error);
+      setInitError(error.message || 'Impossible de charger la configuration.');
+    }
+  };
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await configService.loadConfig();
-        await initNotifications();
-      } catch (error) {
-        console.error('Erreur lors de l\'initialisation de l\'app:', error);
-      } finally {
-        setAppReady(true);
-      }
-    };
-
-    initialize();
+    initializeApp();
   }, []);
 
   // Écoute des notifications en temps réel
@@ -66,18 +70,20 @@ function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Provider store={store}>
-        <SafeAreaProvider>
-          {appReady ? (
-            <AppNavigator />
-          ) : (
-            <LoadingScreen
-              title="Afro Vibe"
-              subtitle="Preparation du theme, des services et de votre session..."
-            />
-          )}
-        </SafeAreaProvider>
-      </Provider>
+      <ErrorBoundary onReset={initializeApp}>
+        <Provider store={store}>
+          <SafeAreaProvider>
+            {appReady ? (
+              <AppNavigator />
+            ) : (
+              <LoadingScreen
+                title={initError ? "Erreur" : "Afro Vibe"}
+                subtitle={initError || "Preparation du theme, des services et de votre session..."}
+              />
+            )}
+          </SafeAreaProvider>
+        </Provider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, LayoutAnimation, Animated } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING } from '../styles/theme';
 import SVGIcon from '../components/SVGIcon';
@@ -8,6 +8,8 @@ import { dbService } from '../services/apiService';
 export const AdminDashboardScreen = () => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   const loadVideos = useCallback(async () => {
     setLoading(true);
@@ -27,6 +29,10 @@ export const AdminDashboardScreen = () => {
       loadVideos();
     }, [loadVideos]),
   );
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, [fadeAnim]);
 
   const handleDelete = async (id) => {
     Alert.alert('Supprimer', 'Voulez-vous supprimer cette vidéo ?', [
@@ -50,11 +56,6 @@ export const AdminDashboardScreen = () => {
   if (loading) {
     return <ActivityIndicator style={{ flex: 1 }} size="large" color={COLORS.primary} />;
   }
-
-    const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  React.useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-  }, [fadeAnim]);
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
