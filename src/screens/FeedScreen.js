@@ -204,6 +204,9 @@ const VideoItemComponent = ({
     outputRange: [0, 0, 1],
   });
 
+  const user = item?.user || {};
+  const currentUserId = authService.getCurrentUser()?.uid;
+
   return (
     <View style={styles.videoContainer}>
       <VideoPlayerView
@@ -225,17 +228,17 @@ const VideoItemComponent = ({
         ]}
         pointerEvents="box-none"
       >
-        <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
-          <Text style={styles.username}>@{item.user.username}</Text>
+        <TouchableOpacity onPress={() => user.uid && navigation.navigate('Profile', { userId: user.uid })}>
+          <Text style={styles.username}>@{user.username || 'utilisateur'}</Text>
         </TouchableOpacity>
-        {item.user.isVerified && (
+        {user.isVerified && (
           <SVGIcon name="verified" size={14} style={styles.verifiedIcon} />
         )}
         <Text style={styles.caption} numberOfLines={3}>{item.caption}</Text>
 
         <View style={styles.musicContainer}>
           <SVGIcon name="music" size={14} color={COLORS.text} style={styles.musicIcon} />
-          <Text style={styles.musicText} numberOfLines={1}>{item.audioName}</Text>
+          <Text style={styles.musicText} numberOfLines={1}>{item.audioName || 'Son original'}</Text>
         </View>
       </Animated.View>
 
@@ -247,16 +250,16 @@ const VideoItemComponent = ({
         pointerEvents="box-none"
       >
         <View style={styles.avatarContainer}>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}>
+          <TouchableOpacity onPress={() => user.uid && navigation.navigate('Profile', { userId: user.uid })}>
             <Image
-              source={item.user?.avatar ? { uri: configService.fixMediaUrl(item.user.avatar) } : require('../assets/images/logo.jpg')}
+              source={user?.avatar ? { uri: configService.fixMediaUrl(user.avatar) } : require('../assets/images/logo.jpg')}
               style={styles.creatorAvatar}
             />
           </TouchableOpacity>
-          {!item.user.isFollowing && item.user.uid !== authService.getCurrentUser()?.uid && (
+          {!user.isFollowing && user.uid && user.uid !== currentUserId && (
             <TouchableOpacity
               style={styles.followBtn}
-              onPress={() => handleFollowCreator(item.user.uid)}
+              onPress={() => handleFollowCreator(user.uid)}
             >
               <Text style={styles.followBtnText}>+</Text>
             </TouchableOpacity>
@@ -381,8 +384,8 @@ export const FeedScreen = ({ route, navigation }) => {
         setVideos(merged);
         setLastVisible(last);
 
-        if (!initialVideoId && !activeVideoId) {
-          setActiveVideoId(merged[0].id);
+        if (!initialVideoId) {
+          setActiveVideoId(prev => prev || merged[0].id);
         }
       } else {
         throw new Error('No online videos');
@@ -398,11 +401,11 @@ export const FeedScreen = ({ route, navigation }) => {
       setVideos(merged);
       setLastVisible(null);
 
-      if (!initialVideoId && merged.length > 0 && !activeVideoId) {
-        setActiveVideoId(merged[0].id);
+      if (!initialVideoId && merged.length > 0) {
+        setActiveVideoId(prev => prev || merged[0].id);
       }
     }
-  }, [activeVideoId, initialVideoId]);
+  }, [initialVideoId]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !lastVisible || activeTab === 'abonnements') return;
@@ -512,11 +515,11 @@ export const FeedScreen = ({ route, navigation }) => {
   const displayedVideos = React.useMemo(() => {
     if (activeTab === 'abonnements') {
       const myId = authService.getCurrentUser()?.uid;
-      return videos.filter(
-        (v) => v.user?.isFollowing || v.user?.uid === myId,
+      return (videos || []).filter(
+        (v) => v?.user?.isFollowing || (v?.user?.uid && v?.user?.uid === myId),
       );
     }
-    return videos;
+    return videos || [];
   }, [videos, activeTab]);
 
   return (
