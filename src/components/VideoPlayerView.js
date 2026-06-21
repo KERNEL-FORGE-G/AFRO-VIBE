@@ -78,15 +78,15 @@ export const VideoPlayerView = ({
   }, [metadata, filters]);
 
   const isYouTube = useMemo(
-    () => videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')),
+    () => typeof videoUrl === 'string' && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')),
     [videoUrl],
   );
 
   const youtubeId = useMemo(() => {
-    if (!isYouTube) return null;
+    if (!isYouTube || typeof videoUrl !== 'string') return null;
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = videoUrl.match(regExp);
-    return match && match[7].length === 11 ? match[7] : null;
+    return match && match[7] && match[7].length === 11 ? match[7] : null;
   }, [videoUrl, isYouTube]);
 
   const triggerPauseAnim = useCallback((willPause) => {

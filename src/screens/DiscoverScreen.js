@@ -38,6 +38,8 @@ const VideoGridItem = memo(({ item, navigation }) => {
     }).start();
   }, [fadeAnim]);
 
+  const user = item?.user || {};
+
   return (
     <Animated.View style={[styles.gridItem, { opacity: fadeAnim }]}>
       <TouchableOpacity
@@ -61,19 +63,19 @@ const VideoGridItem = memo(({ item, navigation }) => {
           <Text style={styles.gridCaption} numberOfLines={2}>{item.caption}</Text>
           <TouchableOpacity
             style={styles.creatorRow}
-            onPress={() => navigation.navigate('Profile', { userId: item.user.uid })}
+            onPress={() => user.uid && navigation.navigate('Profile', { userId: user.uid })}
           >
-            {item.user?.avatar ? (
+            {user?.avatar ? (
               <Image
-                source={{ uri: configService.fixMediaUrl(item.user.avatar) }}
+                source={{ uri: configService.fixMediaUrl(user.avatar) }}
                 style={styles.miniAvatarImage}
               />
             ) : (
               <View style={styles.miniAvatar}>
-                <Text style={styles.avatarInitial}>{item.user?.username?.[0]?.toUpperCase() || 'U'}</Text>
+                <Text style={styles.avatarInitial}>{user?.username?.[0]?.toUpperCase() || 'U'}</Text>
               </View>
             )}
-            <Text style={styles.gridUsername} numberOfLines={1}>@{item.user?.username || 'user'}</Text>
+            <Text style={styles.gridUsername} numberOfLines={1}>@{user?.username || 'utilisateur'}</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
