@@ -237,6 +237,12 @@ export const onlineAuthService = {
     throw new Error('Authentification GitHub non configurée nativement.');
   },
 
+  signInWithAuthentifictor: async (provider) => {
+    if (provider === 'google') return onlineAuthService.signInWithGoogle();
+    if (provider === 'github') return onlineAuthService.signInWithGitHub();
+    throw new Error(`Fournisseur ${provider} non supporté`);
+  },
+
   signOut: async () => {
     assertFirebase();
     try { await GoogleSignin.signOut(); } catch {}
